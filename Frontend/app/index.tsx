@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   ScrollView,
   StatusBar,
@@ -7,144 +7,97 @@ import {
   Text,
   TouchableOpacity,
   View,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// =====================
-// FEATURE CARD
-// =====================
-const FeatureCard = ({ icon, title, desc }: any) => (
-  <View style={styles.card}>
-    <Text style={styles.cardIcon}>{icon}</Text>
-    <Text style={styles.cardTitle}>{title}</Text>
-    <Text style={styles.cardDesc}>{desc}</Text>
-  </View>
-);
-
-// =====================
-// ROLE BUTTON
-// =====================
-const RoleButton = ({ title, route, color }: any) => (
-  <TouchableOpacity
-    style={[styles.roleBtn, { backgroundColor: color }]}
-    onPress={() => router.push(route)}
-  >
-    <Text style={styles.roleText}>{title}</Text>
-  </TouchableOpacity>
-);
-
-// =====================
-// MAIN PAGE
-// =====================
 export default function Home() {
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    checkUser();
+  }, []);
+
+  const checkUser = async () => {
+    const user = await AsyncStorage.getItem("user");
+
+    if (user) {
+      const parsed = JSON.parse(user);
+
+      const role = parsed.user_type?.toUpperCase();
+
+      if (role === "CUSTOMER") {
+        router.replace("/(customer)/home");
+      } else if (role === "EMPLOYEE") {
+        router.replace("/(employee)/home");
+      } else if (role === "ADMIN") {
+        router.replace("/(admin)/dashboard");
+      }
+
+      return;
+    }
+
+    setLoading(false);
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.loader}>
+        <ActivityIndicator color="#2D8CFF" size="large" />
+      </View>
+    );
+  }
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="light-content" />
 
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* ================= HERO ================= */}
-        <View style={styles.hero}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* HERO CARD */}
+        <View style={styles.heroCard}>
           <Text style={styles.badge}>🏢 Enterprise Service Platform</Text>
 
           <Text style={styles.title}>ServeDesk</Text>
 
           <Text style={styles.subtitle}>
-            A unified system to manage{" "}
-            <Text style={{ color: "#fff" }}>
-              orders, employees, tasks, and support requests
-            </Text>{" "}
-            in real time with complete control and visibility.
+            Smart order management, employee coordination, and instant support —
+            all in one powerful system.
           </Text>
+
+          {/* STATS MINI STRIP */}
+          <View style={styles.statsRow}>
+            <View style={styles.statBox}>
+              <Text style={styles.statNum}>1.2K+</Text>
+              <Text style={styles.statLabel}>Orders</Text>
+            </View>
+
+            <View style={styles.statBox}>
+              <Text style={styles.statNum}>350+</Text>
+              <Text style={styles.statLabel}>Employees</Text>
+            </View>
+
+            <View style={styles.statBox}>
+              <Text style={styles.statNum}>98%</Text>
+              <Text style={styles.statLabel}>Success</Text>
+            </View>
+          </View>
 
           {/* CTA */}
           <TouchableOpacity
             style={styles.primaryBtn}
             onPress={() => router.push("/(auth)/sign-in")}
+            activeOpacity={0.8}
           >
-            <Text style={styles.primaryText}>Get Started</Text>
+            <Text style={styles.primaryText}>Login to Dashboard</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.secondaryBtn}
-            onPress={() => router.push("/(auth)/sign-in")}
-          >
-            <Text style={styles.secondaryText}>Login to Dashboard</Text>
-          </TouchableOpacity>
-
-        </View>
-
-        {/* ================= STATS ================= */}
-        <View style={styles.stats}>
-          <View style={styles.statBox}>
-            <Text style={styles.statNum}>1.2K+</Text>
-            <Text style={styles.statLabel}>Orders</Text>
-          </View>
-
-          <View style={styles.statBox}>
-            <Text style={styles.statNum}>350+</Text>
-            <Text style={styles.statLabel}>Employees</Text>
-          </View>
-
-          <View style={styles.statBox}>
-            <Text style={styles.statNum}>98%</Text>
-            <Text style={styles.statLabel}>Resolution</Text>
-          </View>
-        </View>
-
-        {/* ================= FEATURES ================= */}
-        <Text style={styles.sectionTitle}>Core Features</Text>
-
-        <FeatureCard
-          icon="📦"
-          title="Smart Order System"
-          desc="Create and track office service requests in real time."
-        />
-
-        <FeatureCard
-          icon="👨‍💼"
-          title="Employee Management"
-          desc="Assign tasks and monitor employee performance."
-        />
-
-        <FeatureCard
-          icon="📊"
-          title="Live Dashboard"
-          desc="Get real-time insights into operations and workflow."
-        />
-
-        <FeatureCard
-          icon="🚨"
-          title="Instant Support"
-          desc="Raise tickets and notify employees instantly."
-        />
-
-        {/* ================= HOW IT WORKS ================= */}
-        <View style={styles.howBox}>
-          <Text style={styles.sectionTitle}>How It Works</Text>
-
-          <Text style={styles.step}>1. Login as Admin / Employee / User</Text>
-          <Text style={styles.step}>2. Create or receive service requests</Text>
-          <Text style={styles.step}>3. Assign & track tasks in real time</Text>
-          <Text style={styles.step}>4. Resolve & generate reports</Text>
-        </View>
-
-        {/* ================= FINAL CTA ================= */}
-        <View style={styles.bottomCard}>
-          <Text style={styles.bottomTitle}>
-            One Platform. Total Control.
+          <Text style={styles.footerHint}>
+            Secure • Fast • Real-time system
           </Text>
-
-          <Text style={styles.bottomText}>
-            Simplify operations, improve productivity, and manage your entire
-            office workflow from a single system.
-          </Text>
-
-          <TouchableOpacity
-            style={styles.finalBtn}
-            onPress={() => router.push("/(auth)/sign-in")}
-          >
-            <Text style={styles.finalText}>Enter System</Text>
-          </TouchableOpacity>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -152,27 +105,45 @@ export default function Home() {
 }
 
 // =====================
-// STYLES
+// STYLES (PRO UI)
 // =====================
 const styles = StyleSheet.create({
-  container: {
+  safe: {
     flex: 1,
     backgroundColor: "#07111F",
   },
 
-  hero: {
-    padding: 24,
-    paddingTop: 40,
+  scroll: {
+    flexGrow: 1,
+    justifyContent: "center",
+    padding: 20,
+  },
+
+  loader: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#07111F",
+  },
+
+  heroCard: {
+    backgroundColor: "#101E2D",
+    borderRadius: 22,
+    padding: 22,
+    shadowColor: "#000",
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 10,
   },
 
   badge: {
     color: "#64B5F6",
     backgroundColor: "#13263A",
     alignSelf: "flex-start",
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 20,
-    marginBottom: 15,
+    fontSize: 12,
     fontWeight: "700",
   },
 
@@ -180,13 +151,41 @@ const styles = StyleSheet.create({
     fontSize: 44,
     fontWeight: "900",
     color: "#fff",
+    marginTop: 15,
   },
 
   subtitle: {
     color: "#9DB1C7",
-    marginTop: 15,
-    fontSize: 16,
-    lineHeight: 24,
+    marginTop: 12,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+
+  statsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 25,
+  },
+
+  statBox: {
+    flex: 1,
+    backgroundColor: "#16293D",
+    marginHorizontal: 4,
+    padding: 12,
+    borderRadius: 14,
+    alignItems: "center",
+  },
+
+  statNum: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "900",
+  },
+
+  statLabel: {
+    color: "#9DB1C7",
+    fontSize: 12,
+    marginTop: 4,
   },
 
   primaryBtn: {
@@ -199,143 +198,14 @@ const styles = StyleSheet.create({
 
   primaryText: {
     color: "#fff",
-    fontWeight: "800",
+    fontWeight: "900",
+    fontSize: 16,
   },
 
-  secondaryBtn: {
+  footerHint: {
+    color: "#6F8AA6",
+    textAlign: "center",
     marginTop: 12,
-    backgroundColor: "#101E2D",
-    padding: 14,
-    borderRadius: 14,
-    alignItems: "center",
-  },
-
-  secondaryText: {
-    color: "#fff",
-    fontWeight: "700",
-  },
-
-  roleRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 20,
-  },
-
-  roleBtn: {
-    flex: 1,
-    marginHorizontal: 5,
-    padding: 12,
-    borderRadius: 12,
-    alignItems: "center",
-  },
-
-  roleText: {
-    color: "#fff",
-    fontWeight: "800",
-  },
-
-  stats: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    padding: 20,
-  },
-
-  statBox: {
-    backgroundColor: "#101E2D",
-    flex: 1,
-    marginHorizontal: 5,
-    padding: 18,
-    borderRadius: 14,
-    alignItems: "center",
-  },
-
-  statNum: {
-    color: "#fff",
-    fontSize: 22,
-    fontWeight: "900",
-  },
-
-  statLabel: {
-    color: "#9DB1C7",
-    marginTop: 5,
-  },
-
-  sectionTitle: {
-    color: "#fff",
-    fontSize: 22,
-    fontWeight: "900",
-    marginLeft: 20,
-    marginTop: 10,
-    marginBottom: 10,
-  },
-
-  card: {
-    backgroundColor: "#101E2D",
-    margin: 20,
-    marginTop: 10,
-    padding: 18,
-    borderRadius: 16,
-  },
-
-  cardIcon: {
-    fontSize: 28,
-  },
-
-  cardTitle: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "800",
-    marginTop: 8,
-  },
-
-  cardDesc: {
-    color: "#9DB1C7",
-    marginTop: 6,
-    lineHeight: 20,
-  },
-
-  howBox: {
-    backgroundColor: "#101E2D",
-    margin: 20,
-    padding: 18,
-    borderRadius: 16,
-  },
-
-  step: {
-    color: "#B5C4D4",
-    marginTop: 8,
-  },
-
-  bottomCard: {
-    backgroundColor: "#16293D",
-    margin: 20,
-    padding: 22,
-    borderRadius: 18,
-    marginBottom: 40,
-  },
-
-  bottomTitle: {
-    color: "#fff",
-    fontSize: 20,
-    fontWeight: "900",
-  },
-
-  bottomText: {
-    color: "#B5C4D4",
-    marginTop: 10,
-    lineHeight: 22,
-  },
-
-  finalBtn: {
-    marginTop: 18,
-    backgroundColor: "#fff",
-    padding: 14,
-    borderRadius: 14,
-    alignItems: "center",
-  },
-
-  finalText: {
-    color: "#07111F",
-    fontWeight: "900",
+    fontSize: 12,
   },
 });

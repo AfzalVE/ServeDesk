@@ -1,20 +1,25 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    DateTime,
+    ForeignKey,
+)
 from datetime import datetime
 import uuid
 
 from app.database import Base
 
 
-# =========================
-# ORDER MODEL
-# =========================
 class Order(Base):
     __tablename__ = "orders"
 
-    # DB PRIMARY KEY
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
 
-    # PUBLIC TRACKING ID (IMPORTANT)
     order_id = Column(
         String,
         unique=True,
@@ -22,38 +27,44 @@ class Order(Base):
         default=lambda: f"ORD-{uuid.uuid4().hex[:10].upper()}"
     )
 
-    # RELATION
     customer_id = Column(
         Integer,
         ForeignKey("users.id"),
         nullable=False
     )
 
-    # PRODUCT ORDER (OPTIONAL → supports custom orders too)
     product_id = Column(
         Integer,
         ForeignKey("products.id"),
         nullable=True
     )
 
-    # CUSTOM ORDER SUPPORT
-    custom_item_name = Column(String, nullable=True)
-    custom_message = Column(String, nullable=True)
+    custom_item_name = Column(
+        String,
+        nullable=True
+    )
 
-    quantity = Column(Integer, default=1)
+    custom_message = Column(
+        String,
+        nullable=True
+    )
 
-    # STATUS FLOW
+    quantity = Column(
+        Integer,
+        default=1
+    )
+
     status = Column(
         String,
         default="PENDING"
     )
-    # PENDING
-    # ACCEPTED
-    # PREPARING
-    # DELIVERED
-    # CANCELLED
 
-    # TIMESTAMP
+    # NEW COLUMN
+    reject_reason = Column(
+        String,
+        nullable=True
+    )
+
     created_at = Column(
         DateTime,
         default=datetime.utcnow

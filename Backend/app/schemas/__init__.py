@@ -33,8 +33,9 @@ from .order import (
 # TICKET
 # ==========================
 from .support_ticket import (
-    TicketCreate as TicketCreateSchema,
+      TicketCreate,
     TicketAssign,
+    TicketReject,
     TicketResponse,
 )
 
@@ -68,8 +69,9 @@ __all__ = [
     "OrderResponse",
 
     # ticket
-    "TicketCreateSchema",
+    "TicketCreate",
     "TicketAssign",
+    "TicketReject",
     "TicketResponse",
 
     # announcement

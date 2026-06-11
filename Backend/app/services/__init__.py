@@ -34,7 +34,10 @@ from .order_service import (
 from .ticket_service import (
     raise_ticket,
     get_all_tickets,
-    assign_ticket,
+    get_customer_active_tickets,
+    accept_ticket,
+    reject_ticket,
+    cancel_ticket,
     close_ticket,
 )
 
@@ -74,8 +77,11 @@ __all__ = [
     # ticket
     "raise_ticket",
     "get_all_tickets",
-    "assign_ticket",
+    "accept_ticket",
+    "reject_ticket",
+    "cancel_ticket",
     "close_ticket",
+    
 
     # employee
     "get_all_employees",

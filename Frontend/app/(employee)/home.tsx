@@ -8,23 +8,41 @@ import {
   View,
   ActivityIndicator,
   Alert,
+  TextInput,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_URL } from "../../config/api";
+import { useRef } from "react";
 
 // =====================
 // TYPES
 // =====================
 type Order = {
-  id: string;
+  id: number;
   status: string;
   customer_id: number;
+  customer_name?: string;
+  display_name?: string;
+  custom_item_name?: string;
+  quantity?: number;
+  custom_message?: string;
 };
 
 type Ticket = {
-  id: string;
+  id: number;
   message: string;
-  status?: string;
+  status: string;
+
+  customer_name?: string;
+
+  requested_employee_name?: string;
+
+  accepted_by_name?: string;
+
+  rejected_by_name?: string;
+
+  rejection_reason?: string;
 };
 
 // =====================
@@ -34,14 +52,175 @@ export default function EmployeeDashboard() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
+  const socket = useRef<WebSocket | null>( null );
+
+  const [rejectingTicket, setRejectingTicket] =
+    useState<number | null>(null);
+
+  const [rejectReason, setRejectReason] = useState("");
+
+  const [actionLoading, setActionLoading] = useState(false);
 
   // =====================
   // LOAD DATA
   // =====================
-  useEffect(() => {
-    fetchData();
-  }, []);
 
+useEffect(() => {
+  initialize();
+
+  socket.current = new WebSocket(
+    API_URL.replace("http", "ws") + "/ws/tickets"
+  );
+
+  socket.current.onopen = () => {
+    console.log("WebSocket Connected");
+    socket.current?.send("connected");
+  };
+
+  socket.current.onmessage = (event) => {
+    console.log("Received:", event.data);
+
+    try {
+      const ticket = JSON.parse(event.data);
+
+      setTickets((prev) => {
+        const exists = prev.find(
+          (t) => t.id === ticket.id
+        );
+
+        if (exists) {
+          return prev.map((t) =>
+            t.id === ticket.id ? ticket : t
+          );
+        }
+
+        return [ticket, ...prev];
+      });
+    } catch (err) {
+      console.log(
+        "Invalid websocket data",
+        err
+      );
+    }
+  };
+
+  socket.current.onerror = (error) => {
+    console.log(
+      "WebSocket Error:",
+      error
+    );
+  };
+
+  socket.current.onclose = () => {
+    console.log(
+      "WebSocket Closed"
+    );
+  };
+
+  return () => {
+    socket.current?.close();
+  };
+}, []);
+
+  const initialize = async () => {
+    await loadUser();
+    await fetchData();
+  };
+
+  const loadUser = async () => {
+    const data = await AsyncStorage.getItem("user");
+
+    if (data) {
+      setUser(JSON.parse(data));
+    }
+  };
+  const acceptTicket = async (ticketId: number) => {
+    try {
+      setActionLoading(true);
+
+      const res = await fetch(
+        `${API_URL}/tickets/${ticketId}/accept`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            employee_id: user?.id,
+          }),
+        }
+      );
+
+      if (!res.ok) {
+        throw new Error();
+      }
+
+      Alert.alert(
+        "Success",
+        "Ticket accepted successfully."
+      );
+
+      fetchData();
+    } catch {
+      Alert.alert(
+        "Error",
+        "Unable to accept ticket."
+      );
+    } finally {
+      setActionLoading(false);
+    }
+  };
+  const rejectTicket = async (
+    ticketId: number
+  ) => {
+    if (!rejectReason.trim()) {
+      Alert.alert(
+        "Validation",
+        "Please enter a rejection reason."
+      );
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+
+      const res = await fetch(
+        `${API_URL}/tickets/${ticketId}/reject`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            employee_id: user.id,
+            reason: rejectReason,
+          }),
+        }
+      );
+
+      if (!res.ok) {
+        throw new Error();
+      }
+
+      setRejectReason("");
+      setRejectingTicket(null);
+
+      Alert.alert(
+        "Success",
+        "Ticket rejected."
+      );
+
+      fetchData();
+    } catch {
+      Alert.alert(
+        "Error",
+        "Unable to reject ticket."
+      );
+    } finally {
+      setActionLoading(false);
+    }
+  };
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -53,6 +232,7 @@ export default function EmployeeDashboard() {
 
       const ordersData = await orderRes.json();
       const ticketsData = await ticketRes.json();
+      console.log("Fetched orders:", ordersData);
 
       setOrders(Array.isArray(ordersData) ? ordersData : []);
       setTickets(Array.isArray(ticketsData) ? ticketsData : []);
@@ -68,107 +248,228 @@ export default function EmployeeDashboard() {
   // =====================
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loader}>
-          <ActivityIndicator size="large" color="#2D8CFF" />
-          <Text style={styles.loaderText}>Loading dashboard...</Text>
-        </View>
-      </SafeAreaView>
+
+      <View style={styles.loader}>
+        <ActivityIndicator size="large" color="#2D8CFF" />
+        <Text style={styles.loaderText}>Loading dashboard...</Text>
+      </View>
+
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
 
-        {/* ================= HEADER ================= */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Employee Dashboard</Text>
-          <Text style={styles.subtitle}>
-            Manage orders & support requests in real time
+    <ScrollView
+      style={styles.container}
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={{
+        paddingBottom: 120,
+      }}
+    >
+      {/* HEADER */}
+      <View style={styles.header}>
+        <Text style={styles.title}>
+          Employee Dashboard
+        </Text>
+
+        <Text style={styles.subtitle}>
+          Monitor orders and support requests
+        </Text>
+      </View>
+
+      {/* STATS */}
+      <View style={styles.statsRow}>
+        <View style={styles.statCard}>
+          <Text style={styles.statNumber}>
+            {orders.length}
+          </Text>
+          <Text style={styles.statLabel}>
+            Orders
           </Text>
         </View>
 
-        {/* ================= STATS ================= */}
-        <View style={styles.statsRow}>
-          <View style={styles.statCard}>
-            <Text style={styles.statNum}>{orders.length}</Text>
-            <Text style={styles.statLabel}>Orders</Text>
-          </View>
-
-          <View style={styles.statCard}>
-            <Text style={styles.statNum}>{tickets.length}</Text>
-            <Text style={styles.statLabel}>Tickets</Text>
-          </View>
-
-          <View style={styles.statCard}>
-            <Text style={styles.statNum}>
-              {orders.filter(o => o.status === "PENDING").length}
-            </Text>
-            <Text style={styles.statLabel}>Pending</Text>
-          </View>
-        </View>
-
-        {/* ================= QUICK ACTIONS ================= */}
-        <Text style={styles.sectionTitle}>Quick Actions</Text>
-
-        <View style={styles.actionRow}>
-          <TouchableOpacity
-            style={styles.actionBtn}
-            onPress={() => router.push("/(employee)/orders")}
-          >
-            <Text style={styles.actionText}>📦 All Orders</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionBtn}
-            onPress={() => router.push("/(employee)/tickets")}
-          >
-            <Text style={styles.actionText}>🚨 Tickets</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionBtn}
-            onPress={() => router.push("/(employee)/profile")}
-          >
-            <Text style={styles.actionText}>👤 Profile</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* ================= LIVE ORDERS PREVIEW ================= */}
-        <Text style={styles.sectionTitle}>Latest Orders</Text>
-
-        {orders.slice(0, 5).map((order) => (
-          <View key={order.id} style={styles.card}>
-            <Text style={styles.cardTitle}>
-              Order #{order.id}
-            </Text>
-            <Text style={styles.cardSub}>
-              Status: {order.status}
-            </Text>
-          </View>
-        ))}
-
-        {/* ================= TICKET ALERTS ================= */}
-        <Text style={styles.sectionTitle}>Recent Tickets</Text>
-
-        {tickets.slice(0, 3).map((t) => (
-          <View key={t.id} style={styles.ticketCard}>
-            <Text style={styles.ticketText}>
-              🚨 {t.message}
-            </Text>
-          </View>
-        ))}
-
-        {/* ================= FOOTER ================= */}
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            ⚡ Real-time employee control panel
+        <View style={styles.statCard}>
+          <Text style={styles.statNumber}>
+            {
+              tickets.filter(
+                (x) =>
+                  x.status === "OPEN" ||
+                  x.status === "ASSIGNED"
+              ).length
+            }
+          </Text>
+          <Text style={styles.statLabel}>
+            Tickets
           </Text>
         </View>
 
-      </ScrollView>
-    </SafeAreaView>
+        <View style={styles.statCard}>
+          <Text style={styles.statNumber}>
+            {
+              orders.filter(
+                (x) => x.status === "PENDING"
+              ).length
+            }
+          </Text>
+          <Text style={styles.statLabel}>
+            Pending
+          </Text>
+        </View>
+      </View>
+
+      {/* ACTIVE TICKETS */}
+
+      <Text style={styles.sectionTitle}>
+        🎫 Active Tickets
+      </Text>
+
+      {tickets.length === 0 ? (
+        <View style={styles.emptyCard}>
+          <Text style={styles.emptyText}>
+            No active tickets
+          </Text>
+        </View>
+      ) : (
+        tickets.slice(0, 5).map((ticket) => (
+          <View
+            key={ticket.id}
+            style={styles.ticketCard}
+          >
+            <Text style={styles.ticketTitle}>
+              {ticket.customer_name}
+            </Text>
+
+            <Text style={styles.ticketItem}>
+              Requested :
+              {" "}
+              {ticket.requested_employee_name}
+            </Text>
+
+            <Text style={styles.ticketItem}>
+              Accepted :
+              {" "}
+              {ticket.accepted_by_name || "-"}
+            </Text>
+
+            <Text style={styles.ticketItem}>
+              Rejected :
+              {" "}
+              {ticket.rejected_by_name || "-"}
+            </Text>
+
+            {ticket.rejection_reason ? (
+              <Text style={styles.rejectReason}>
+                Reason :
+                {" "}
+                {ticket.rejection_reason}
+              </Text>
+            ) : null}
+
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>
+                {ticket.status}
+              </Text>
+            </View>
+
+            {ticket.status === "OPEN" && (
+              <>
+                <TouchableOpacity
+                  style={styles.acceptBtn}
+                  disabled={actionLoading}
+                  onPress={() =>
+                    acceptTicket(ticket.id)
+                  }
+                >
+                  <Text style={styles.actionText}>
+                    ✅ Accept
+                  </Text>
+                </TouchableOpacity>
+
+                {rejectingTicket === ticket.id ? (
+                  <>
+                    <TextInput
+                      placeholder="Enter rejection reason"
+                      placeholderTextColor="#999"
+                      style={styles.rejectInput}
+                      value={rejectReason}
+                      onChangeText={setRejectReason}
+                    />
+
+                    <TouchableOpacity
+                      style={styles.rejectBtn}
+                      disabled={actionLoading}
+                      onPress={() =>
+                        rejectTicket(ticket.id)
+                      }
+                    >
+                      <Text style={styles.actionText}>
+                        Submit Rejection
+                      </Text>
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.rejectBtn}
+                    onPress={() =>
+                      setRejectingTicket(ticket.id)
+                    }
+                  >
+                    <Text style={styles.actionText}>
+                      ❌ Reject
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </>
+            )}
+          </View>
+        ))
+      )}
+
+      {/* ORDERS */}
+
+      <Text style={styles.sectionTitle}>
+        📦 Latest Orders
+      </Text>
+
+      {orders.slice(0, 8).map((order) => (
+        <View
+          key={order.id}
+          style={styles.orderCard}
+        >
+          <Text style={styles.orderTitle}>
+            {order.display_name ||
+              order.custom_item_name}
+          </Text>
+
+          <Text style={styles.orderItem}>
+            Customer :
+            {" "}
+            {order.customer_name}
+          </Text>
+
+          <Text style={styles.orderItem}>
+            Quantity :
+            {" "}
+            {order.quantity}
+          </Text>
+
+          {order.custom_message ? (
+            <Text style={styles.orderItem}>
+              Note :
+              {" "}
+              {order.custom_message}
+            </Text>
+          ) : null}
+
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>
+              {order.status}
+            </Text>
+          </View>
+        </View>
+      ))}
+    </ScrollView>
+
   );
 }
 
@@ -192,37 +493,9 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
 
-  header: {
-    padding: 20,
-    paddingTop: 30,
-  },
 
-  title: {
-    color: "#fff",
-    fontSize: 28,
-    fontWeight: "900",
-  },
 
-  subtitle: {
-    color: "#9DB1C7",
-    marginTop: 6,
-  },
 
-  statsRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 15,
-    marginTop: 10,
-  },
-
-  statCard: {
-    flex: 1,
-    marginHorizontal: 5,
-    backgroundColor: "#101E2D",
-    padding: 18,
-    borderRadius: 14,
-    alignItems: "center",
-  },
 
   statNum: {
     color: "#fff",
@@ -230,19 +503,7 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
 
-  statLabel: {
-    color: "#9DB1C7",
-    marginTop: 5,
-  },
 
-  sectionTitle: {
-    color: "#fff",
-    fontSize: 20,
-    fontWeight: "900",
-    marginLeft: 20,
-    marginTop: 25,
-    marginBottom: 10,
-  },
 
   actionRow: {
     flexDirection: "row",
@@ -283,13 +544,7 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
 
-  ticketCard: {
-    backgroundColor: "#16293D",
-    marginHorizontal: 20,
-    padding: 14,
-    borderRadius: 14,
-    marginBottom: 10,
-  },
+
 
   ticketText: {
     color: "#fff",
@@ -305,5 +560,151 @@ const styles = StyleSheet.create({
 
   footerText: {
     color: "#9DB1C7",
+  },
+  header: {
+    margin: 15,
+    padding: 20,
+    backgroundColor: "#101E2D",
+    borderRadius: 18,
+  },
+
+  title: {
+    color: "#FFF",
+    fontSize: 28,
+    fontWeight: "900",
+  },
+
+  subtitle: {
+    color: "#9DB1C7",
+    marginTop: 5,
+  },
+
+  statsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 15,
+  },
+
+  statCard: {
+    flex: 1,
+    backgroundColor: "#101E2D",
+    marginHorizontal: 5,
+    padding: 18,
+    borderRadius: 16,
+    alignItems: "center",
+  },
+
+  statNumber: {
+    color: "#2D8CFF",
+    fontSize: 24,
+    fontWeight: "900",
+  },
+
+  statLabel: {
+    color: "#9DB1C7",
+    marginTop: 5,
+  },
+
+  sectionTitle: {
+    color: "#FFF",
+    fontSize: 22,
+    fontWeight: "900",
+    marginHorizontal: 15,
+    marginTop: 25,
+    marginBottom: 10,
+  },
+
+  ticketCard: {
+    backgroundColor: "#101E2D",
+    marginHorizontal: 15,
+    marginBottom: 12,
+    padding: 15,
+    borderRadius: 16,
+  },
+
+  orderCard: {
+    backgroundColor: "#101E2D",
+    marginHorizontal: 15,
+    marginBottom: 12,
+    padding: 15,
+    borderRadius: 16,
+  },
+
+  ticketTitle: {
+    color: "#FFF",
+    fontWeight: "900",
+    fontSize: 17,
+  },
+
+  orderTitle: {
+    color: "#FFF",
+    fontWeight: "900",
+    fontSize: 17,
+  },
+
+  ticketItem: {
+    color: "#B8C5D4",
+    marginTop: 5,
+  },
+
+  orderItem: {
+    color: "#B8C5D4",
+    marginTop: 5,
+  },
+
+  badge: {
+    marginTop: 12,
+    backgroundColor: "#2D8CFF",
+    alignSelf: "flex-start",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+
+  badgeText: {
+    color: "#FFF",
+    fontWeight: "800",
+  },
+
+  rejectReason: {
+    color: "#FF8A80",
+    marginTop: 8,
+  },
+
+  emptyCard: {
+    backgroundColor: "#101E2D",
+    marginHorizontal: 15,
+    padding: 20,
+    borderRadius: 16,
+  },
+
+  emptyText: {
+    color: "#9DB1C7",
+    textAlign: "center",
+  },
+  acceptBtn: {
+    backgroundColor: "#43A047",
+    padding: 12,
+    borderRadius: 12,
+    alignItems: "center",
+    marginTop: 15,
+  },
+
+  rejectBtn: {
+    backgroundColor: "#E53935",
+    padding: 12,
+    borderRadius: 12,
+    alignItems: "center",
+    marginTop: 10,
+  },
+
+
+
+  rejectInput: {
+    backgroundColor: "#16293D",
+    color: "#FFF",
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 10,
   },
 });

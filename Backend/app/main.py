@@ -2,8 +2,12 @@ from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from sqlalchemy.orm import Session
+from typing import Optional
 
 from app.database import Base, engine, get_db
+from fastapi import WebSocket 
+from fastapi import WebSocketDisconnect 
+from app.websocket_manager import manager
 
 # ==========================
 # Schemas
@@ -19,8 +23,10 @@ from app.schemas import (
     OrderCreateSchema,
     OrderResponse,
 
-    TicketCreateSchema,
-    TicketResponse
+    TicketCreate,
+    TicketAssign,
+    TicketReject,
+    TicketResponse,
 )
 
 # ==========================
@@ -46,10 +52,12 @@ from app.services.order_service import (
 from app.services.ticket_service import (
     raise_ticket,
     get_all_tickets,
-    assign_ticket,
+    get_customer_active_tickets,
+    accept_ticket,
+    reject_ticket,
+    cancel_ticket,
     close_ticket
 )
-
 from app.services.employee_service import (
     get_all_employees,
     get_all_customers,
@@ -268,55 +276,166 @@ def assign_order(order_id: int, employee_id: int, db: Session = Depends(get_db))
     return order
 
 
-@app.put("/orders/{order_id}/status")
-def change_order_status(order_id: int, status: str, db: Session = Depends(get_db)):
 
-    order = update_order_status(db, order_id, status)
+
+@app.put("/orders/{order_id}/status")
+def change_order_status(
+    order_id: int,
+    status: str,
+    reject_reason: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    order = update_order_status(
+        db,
+        order_id,
+        status,
+        reject_reason
+    )
 
     if not order:
-        raise HTTPException(status_code=404, detail="Order not found")
+        raise HTTPException(
+            status_code=404,
+            detail="Order not found"
+        )
 
     return order
-
 # ==========================
 # TICKETS
 # ==========================
-@app.post("/tickets", response_model=TicketResponse)
-def create_ticket(payload: TicketCreateSchema, db: Session = Depends(get_db)):
+@app.websocket("/ws/tickets")
+async def websocket_endpoint(
+    websocket: WebSocket
+):
+    await manager.connect(websocket)
 
-    return raise_ticket(
+    try:
+        while True:
+            await websocket.receive_text()
+
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+
+@app.post("/tickets", response_model=TicketResponse)
+async def create_ticket(
+    payload: TicketCreate,
+    db: Session = Depends(get_db)
+):
+
+    ticket = raise_ticket(
         db=db,
         customer_id=payload.customer_id,
+        employee_id=payload.employee_id,
         message=payload.message
     )
 
+    if not ticket:
+        raise HTTPException(
+            status_code=404,
+            detail="Customer or Employee not found"
+        )
 
-@app.get("/tickets")
-def tickets(db: Session = Depends(get_db)):
+    return ticket
+
+
+@app.get(
+    "/tickets",
+    response_model=list[TicketResponse]
+)
+async def tickets(
+    db: Session = Depends(get_db)
+):
     return get_all_tickets(db)
 
+@app.get("/tickets/customer/{customer_id}",response_model=list[TicketResponse])
+async def get_customer_tickets(customer_id: int,db: Session = Depends(get_db)):
+    return get_customer_active_tickets(
+        db=db,
+        customer_id=customer_id
+    )
 
-@app.put("/tickets/{ticket_id}/assign")
-def assign_support(ticket_id: int, employee_id: int, db: Session = Depends(get_db)):
+@app.put("/tickets/{ticket_id}/accept")
+async def accept_support(
+    ticket_id: int,
+    payload: TicketAssign,
+    db: Session = Depends(get_db)
+):
 
-    ticket = assign_ticket(db, ticket_id, employee_id)
+    ticket = accept_ticket(
+        db=db,
+        ticket_id=ticket_id,
+        employee_id=payload.employee_id
+    )
 
     if not ticket:
-        raise HTTPException(status_code=404, detail="Ticket not found")
+        raise HTTPException(
+            status_code=404,
+            detail="Ticket not found"
+        )
+
+    return ticket
+
+
+@app.put("/tickets/{ticket_id}/reject")
+async def reject_support(
+    ticket_id: int,
+    payload: TicketReject,
+    db: Session = Depends(get_db)
+):
+
+    ticket = reject_ticket(
+        db=db,
+        ticket_id=ticket_id,
+        employee_id=payload.employee_id,
+        reason=payload.reason
+    )
+
+    if not ticket:
+        raise HTTPException(
+            status_code=404,
+            detail="Ticket not found"
+        )
+
+    return ticket
+
+
+@app.put("/tickets/{ticket_id}/cancel")
+async def cancel_support(
+    ticket_id: int,
+    db: Session = Depends(get_db)
+):
+
+    ticket = cancel_ticket(
+        db=db,
+        ticket_id=ticket_id
+    )
+
+    if not ticket:
+        raise HTTPException(
+            status_code=404,
+            detail="Ticket not found"
+        )
 
     return ticket
 
 
 @app.put("/tickets/{ticket_id}/close")
-def close_support(ticket_id: int, db: Session = Depends(get_db)):
+async def close_support(
+    ticket_id: int,
+    db: Session = Depends(get_db)
+):
 
-    ticket = close_ticket(db, ticket_id)
+    ticket = close_ticket(
+        db=db,
+        ticket_id=ticket_id
+    )
 
     if not ticket:
-        raise HTTPException(status_code=404, detail="Ticket not found")
+        raise HTTPException(
+            status_code=404,
+            detail="Ticket not found"
+        )
 
     return ticket
-
 # ==========================
 # EMPLOYEE / ADMIN
 # ==========================
