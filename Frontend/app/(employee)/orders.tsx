@@ -10,8 +10,10 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { API_URL } from "../../config/api";
+import { colors } from "../../constants/theme";
 
 type Order = {
   id: number;
@@ -25,6 +27,7 @@ type Order = {
 };
 
 export default function OrdersPage() {
+  const [refreshing, setRefreshing] = useState(false);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -45,8 +48,30 @@ export default function OrdersPage() {
       setLoading(true);
       const res = await fetch(`${API_URL}/orders`);
       const data = await res.json();
-      console.log(data)
-      setOrders(Array.isArray(data) ? data : []);
+      setOrders(
+        Array.isArray(data)
+          ? [...data].sort((a, b) => {
+            // Pending first
+            if (
+              a.status === "PENDING" &&
+              b.status !== "PENDING"
+            )
+              return -1;
+
+            if (
+              a.status !== "PENDING" &&
+              b.status === "PENDING"
+            )
+              return 1;
+
+            // Then latest first
+            return (
+              new Date(b.created_at).getTime() -
+              new Date(a.created_at).getTime()
+            );
+          })
+          : []
+      );
     } catch {
       Alert.alert("Error", "Failed to load orders");
     } finally {
@@ -148,6 +173,15 @@ export default function OrdersPage() {
   );
 };
 
+const onRefresh = async () => {
+  try {
+    setRefreshing(true);
+    await fetchOrders();
+  } finally {
+    setRefreshing(false);
+  }
+};
+
   // =========================
   // LOADING UI
   // =========================
@@ -161,7 +195,16 @@ export default function OrdersPage() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView>
+      <ScrollView
+       refreshControl={
+    <RefreshControl
+      refreshing={refreshing}
+      onRefresh={onRefresh}
+      colors={["#2D8CFF"]}
+      tintColor="#2D8CFF"
+    />
+  }
+      >
         <Text style={styles.title}>All Orders</Text>
 
         {orders.map((order) => {
@@ -342,7 +385,7 @@ export default function OrdersPage() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#07111F",
+    backgroundColor: colors.background,
   },
 
   loader: {

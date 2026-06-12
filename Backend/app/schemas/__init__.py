@@ -9,7 +9,10 @@ from .auth import (
 # ==========================
 # USER
 # ==========================
-from .user import UserResponse
+from .user import (
+    UserResponse,
+    UserUpdate,
+)
 
 # ==========================
 # PRODUCT
@@ -57,6 +60,7 @@ __all__ = [
 
     # user
     "UserResponse",
+    "UserUpdate",
 
     # product
     "ProductCreateSchema",

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_URL } from "../../config/api";
+import { colors } from "../../constants/theme";
 
 export default function Custom() {
   const [text, setText] = useState("");
@@ -54,7 +55,7 @@ export default function Custom() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#07111F", padding: 15 },
+  container: { flex: 1, backgroundColor: colors.background, padding: 15 },
   title: { color: "#fff", fontSize: 24, fontWeight: "900", marginBottom: 10 },
   input: {
     backgroundColor: "#101E2D",

@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ActivityIndicator, View,StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { colors } from "../../constants/theme";
 
 export default function EmployeeLayout() {
   const [loading, setLoading] = useState(true);
@@ -39,7 +40,7 @@ export default function EmployeeLayout() {
       <View
         style={{
           flex: 1,
-          backgroundColor: "#07111F",
+          backgroundColor: colors.background,
           justifyContent: "center",
           alignItems: "center",
         }}
@@ -116,6 +117,25 @@ export default function EmployeeLayout() {
           ),
         }}
       />
+         {/* ANNOUNCEMENTS */}
+              <Tabs.Screen
+                name="announcements"
+                options={{
+                  title:
+                    "Notices",
+                  tabBarIcon: ({
+                    color,
+                    size,
+                  }) => (
+                    <Ionicons
+                      name="megaphone-outline"
+                      size={size}
+                      color={color}
+                    />
+                  ),
+                }}
+              />
+      
 
       <Tabs.Screen
         name="profile"
@@ -137,14 +157,14 @@ export default function EmployeeLayout() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: "#07111F",
+    backgroundColor: colors.background,
   },
 
   wrapper: {
     flex: 1,
   },
 
-  tabBar: {
+   tabBar: {
     backgroundColor: "#101E2D",
 
     position: "absolute",

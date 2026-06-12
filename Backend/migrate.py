@@ -29,29 +29,57 @@
 # if __name__ == "__main__":
 #     add_column()
 
+# import sqlite3
+
+# DB_PATH = "users.db"  # change if needed
+
+# conn = sqlite3.connect(DB_PATH)
+# cursor = conn.cursor()
+
+# try:
+#     cursor.execute("""
+#         ALTER TABLE orders
+#         ADD COLUMN reject_reason TEXT
+#     """)
+
+#     conn.commit()
+#     print(
+#         "✅ reject_reason column added successfully."
+#     )
+
+# except Exception as e:
+#     print(
+#         "❌ Error:",
+#         e
+#     )
+
+# finally:
+#     conn.close()
+
 import sqlite3
 
-DB_PATH = "users.db"  # change if needed
+DATABASE = "users.db"  # change to your database file
 
-conn = sqlite3.connect(DB_PATH)
+conn = sqlite3.connect(DATABASE)
 cursor = conn.cursor()
 
 try:
     cursor.execute("""
-        ALTER TABLE orders
-        ADD COLUMN reject_reason TEXT
+        ALTER TABLE announcements
+        ADD COLUMN created_at TIMESTAMP
+    """)
+
+    cursor.execute("""
+        UPDATE announcements
+        SET created_at = CURRENT_TIMESTAMP
+        WHERE created_at IS NULL
     """)
 
     conn.commit()
-    print(
-        "✅ reject_reason column added successfully."
-    )
+    print("created_at column added successfully.")
 
 except Exception as e:
-    print(
-        "❌ Error:",
-        e
-    )
+    print(e)
 
 finally:
     conn.close()

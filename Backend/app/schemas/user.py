@@ -2,6 +2,13 @@ from pydantic import BaseModel
 from datetime import datetime
 
 
+class UserUpdate(BaseModel):
+    full_name: str
+    employee_id: str | None = None
+    email: str
+    user_type: str
+
+
 class UserResponse(BaseModel):
     id: int
     full_name: str
@@ -12,4 +19,3 @@ class UserResponse(BaseModel):
 
     class Config:
         from_attributes = True
-

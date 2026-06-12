@@ -5,9 +5,12 @@ import {
   StyleSheet,
   Text,
   View,
+ FlatList ,
+ RefreshControl ,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { API_URL } from "../../config/api";
+import { colors } from "../../constants/theme";
 
 type Ticket = {
   id: number;
@@ -23,7 +26,7 @@ type Ticket = {
 
   rejected_employee_id: number | null;
   rejected_employee_name: string | null;
-  
+
 
   reject_reason: string | null;
 
@@ -33,6 +36,7 @@ type Ticket = {
 };
 
 export default function TicketsPage() {
+  const [refreshing, setRefreshing] = useState(false);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -44,13 +48,18 @@ export default function TicketsPage() {
     try {
       const res = await fetch(`${API_URL}/tickets`);
       const data = await res.json();
-      console.log("Fetched tickets:", data);
       setTickets(Array.isArray(data) ? data : []);
     } finally {
       setLoading(false);
     }
   };
+  const onRefresh = async () => {
+    setRefreshing(true);
 
+    await fetchTickets();
+
+    setRefreshing(false);
+  };
   if (loading) {
     return (
       <View style={styles.loader}>
@@ -61,138 +70,116 @@ export default function TicketsPage() {
 
   return (
 
-      <ScrollView style={styles.container}>
-       <Text style={styles.title} >🎫 Support Tickets</Text>
-
-{tickets.length === 0 ? (
-  <View style={styles.emptyCard}>
-    <Text style={styles.emptyText}>
-      No support tickets found
-    </Text>
-  </View>
-) : (
-  tickets.map((t) => (
-    <View key={t.id} style={styles.card}>
-      <View style={styles.headerRow}>
-        <Text style={styles.ticketId}>
-          Ticket #{t.id}
+  <FlatList
+    data={tickets}
+    keyExtractor={(item) => item.id.toString()}
+    style={styles.container}
+    refreshControl={
+      <RefreshControl
+        refreshing={refreshing}
+        onRefresh={onRefresh}
+        tintColor="#2D8CFF"
+      />
+    }
+    ListHeaderComponent={
+      <Text style={styles.title}>🎫 Support Tickets</Text>
+    }
+    ListEmptyComponent={
+      <View style={styles.emptyCard}>
+        <Text style={styles.emptyText}>
+          No support tickets found
         </Text>
-
-        <View
-          style={[
-            styles.statusBadge,
-            t.status === "OPEN" &&
-              styles.openBadge,
-            t.status === "ACCEPTED" &&
-              styles.acceptedBadge,
-            t.status === "REJECTED" &&
-              styles.rejectedBadge,
-            t.status === "CANCELLED" &&
-              styles.cancelledBadge,
-            t.status === "CLOSED" &&
-              styles.closedBadge,
-          ]}
-        >
-          <Text style={styles.statusText}>
-            {t.status}
+      </View>
+    }
+    renderItem={({ item: t }) => (
+      <View style={styles.card}>
+        <View style={styles.headerRow}>
+          <Text style={styles.ticketId}>
+            Ticket #{t.id}
           </Text>
+
+          <View
+            style={[
+              styles.statusBadge,
+              t.status === "OPEN" && styles.openBadge,
+              t.status === "ACCEPTED" && styles.acceptedBadge,
+              t.status === "REJECTED" && styles.rejectedBadge,
+              t.status === "CANCELLED" && styles.cancelledBadge,
+              t.status === "CLOSED" && styles.closedBadge,
+            ]}
+          >
+            <Text style={styles.statusText}>{t.status}</Text>
+          </View>
         </View>
-      </View>
 
-      <View style={styles.divider} />
+        <View style={styles.divider} />
 
-      <View style={styles.infoRow}>
-        <Text style={styles.label}>
-          👤 Customer
-        </Text>
-
-        <Text style={styles.value}>
-          {t.customer_name}
-        </Text>
-      </View>
-
-      <View style={styles.infoRow}>
-        <Text style={styles.label}>
-          🙋 Requested Employee
-        </Text>
-
-        <Text style={styles.value}>
-          {t.requested_employee_name ||
-            "-"}
-        </Text>
-      </View>
-
-      {t.accepted_employee_name && (
         <View style={styles.infoRow}>
-          <Text style={styles.label}>
-            ✅ Accepted By
-          </Text>
+          <Text style={styles.label}>👤 Customer</Text>
+          <Text style={styles.value}>{t.customer_name}</Text>
+        </View>
 
-          <Text style={styles.successText}>
-            {t.accepted_employee_name}
+        <View style={styles.infoRow}>
+          <Text style={styles.label}>🙋 Requested Employee</Text>
+          <Text style={styles.value}>
+            {t.requested_employee_name || "-"}
           </Text>
         </View>
-      )}
 
-      {t.rejected_employee_name && (
-        <>
+        {t.accepted_employee_name && (
           <View style={styles.infoRow}>
-            <Text style={styles.label}>
-              ❌ Rejected By
-            </Text>
-
-            <Text style={styles.rejectText}>
-              {t.rejected_employee_name}
+            <Text style={styles.label}>✅ Accepted By</Text>
+            <Text style={styles.successText}>
+              {t.accepted_employee_name}
             </Text>
           </View>
+        )}
 
-          <View style={styles.reasonBox}>
-            <Text style={styles.reasonTitle}>
-              Reject Reason
-            </Text>
+        {t.rejected_employee_name && (
+          <>
+            <View style={styles.infoRow}>
+              <Text style={styles.label}>❌ Rejected By</Text>
+              <Text style={styles.rejectText}>
+                {t.rejected_employee_name}
+              </Text>
+            </View>
 
-            <Text style={styles.reasonText}>
-              {t.reject_reason}
-            </Text>
-          </View>
-        </>
-      )}
+            <View style={styles.reasonBox}>
+              <Text style={styles.reasonTitle}>
+                Reject Reason
+              </Text>
+              <Text style={styles.reasonText}>
+                {t.reject_reason}
+              </Text>
+            </View>
+          </>
+        )}
 
-      <View style={styles.messageBox}>
-        <Text style={styles.messageTitle}>
-          Message
-        </Text>
+        <View style={styles.messageBox}>
+          <Text style={styles.messageTitle}>Message</Text>
+          <Text style={styles.messageText}>{t.message}</Text>
+        </View>
 
-        <Text style={styles.messageText}>
-          {t.message}
+        <Text style={styles.date}>
+          🕒 {new Date(t.created_at).toLocaleString()}
         </Text>
       </View>
-
-      <Text style={styles.date}>
-        🕒{" "}
-        {new Date(
-          t.created_at
-        ).toLocaleString()}
-      </Text>
-    </View>
-  ))
-)}
-      </ScrollView>
-
-  );
+    )}
+  />
+);
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#07111F",
+    backgroundColor: colors.background,
   },
 
   loader: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#07111F",
+    backgroundColor: colors.background,
   },
 
   title: {

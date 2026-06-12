@@ -10,8 +10,10 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_URL } from "../../config/api";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { colors } from "../../constants/theme";
 
 export default function Orders() {
+  const [refreshing, setRefreshing] = useState(false);
   const insets = useSafeAreaInsets();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,38 +32,46 @@ export default function Orders() {
       );
 
       const data = await res.json();
-      console.log(data)
-setOrders(
-  Array.isArray(data)
-    ? [...data].sort((a, b) => {
-        // Pending first
-        if (
-          a.status === "PENDING" &&
-          b.status !== "PENDING"
-        )
-          return -1;
+      setOrders(
+        Array.isArray(data)
+          ? [...data].sort((a, b) => {
+            // Pending first
+            if (
+              a.status === "PENDING" &&
+              b.status !== "PENDING"
+            )
+              return -1;
 
-        if (
-          a.status !== "PENDING" &&
-          b.status === "PENDING"
-        )
-          return 1;
+            if (
+              a.status !== "PENDING" &&
+              b.status === "PENDING"
+            )
+              return 1;
 
-        // Then latest first
-        return (
-          new Date(b.created_at).getTime() -
-          new Date(a.created_at).getTime()
-        );
-      })
-    : []
-);
+            // Then latest first
+            return (
+              new Date(b.created_at).getTime() -
+              new Date(a.created_at).getTime()
+            );
+          })
+          : []
+      );
     } catch (err) {
       console.log(err);
     } finally {
       setLoading(false);
     }
   };
-
+  const onRefresh = async () => {
+    try {
+      setRefreshing(true);
+      await loadOrders();
+    } catch (e) {
+      console.log(e);
+    } finally {
+      setRefreshing(false);
+    }
+  };
   if (loading) {
     return (
       <View style={styles.loader}>
@@ -84,6 +94,10 @@ setOrders(
       ListHeaderComponent={
         <Text style={styles.title}>📦 Your Orders</Text>
       }
+
+      refreshing={refreshing}
+      onRefresh={onRefresh}
+
       renderItem={({ item }) => (
         <View style={styles.card}>
           <Text style={styles.orderId}>
@@ -113,37 +127,37 @@ setOrders(
           <Text style={styles.date}>
             📅 {new Date(item.created_at).toLocaleString()}
           </Text>
-<View
-  style={[
-    styles.status,
-    item.status === "DELIVERED"
-      ? styles.delivered
-      : item.status === "ACCEPTED"
-      ? styles.accepted
-      : item.status === "PREPARING"
-      ? styles.preparing
-      : item.status === "CANCELLED"
-      ? styles.cancelled
-      : item.status === "REJECTED"
-      ? styles.rejected
-      : styles.pending,
-  ]}
->
+          <View
+            style={[
+              styles.status,
+              item.status === "DELIVERED"
+                ? styles.delivered
+                : item.status === "ACCEPTED"
+                  ? styles.accepted
+                  : item.status === "PREPARING"
+                    ? styles.preparing
+                    : item.status === "CANCELLED"
+                      ? styles.cancelled
+                      : item.status === "REJECTED"
+                        ? styles.rejected
+                        : styles.pending,
+            ]}
+          >
             <Text style={styles.statusText}>
               {item.status}
             </Text>
           </View>
           {item.reject_reason ? (
-  <View style={styles.reasonBox}>
-    <Text style={styles.reasonTitle}>
-      ❌ Reject Reason
-    </Text>
+            <View style={styles.reasonBox}>
+              <Text style={styles.reasonTitle}>
+                ❌ Reject Reason
+              </Text>
 
-    <Text style={styles.reasonText}>
-      {item.reject_reason}
-    </Text>
-  </View>
-) : null}
+              <Text style={styles.reasonText}>
+                {item.reject_reason}
+              </Text>
+            </View>
+          ) : null}
         </View>
       )}
     />
@@ -157,11 +171,11 @@ setOrders(
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: "#07111F",
+    backgroundColor: colors.background,
   },
   container: {
     flex: 1,
-    backgroundColor: "#07111F",
+    backgroundColor: colors.background,
   },
   scrollContent: {
     paddingBottom: 120,
@@ -170,7 +184,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#07111F",
+    backgroundColor: colors.background,
   },
 
   title: {
@@ -245,25 +259,25 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: 12,
   },
-reasonBox: {
-  marginTop: 12,
-  backgroundColor: "#2A1620",
-  padding: 10,
-  borderRadius: 10,
-},
+  reasonBox: {
+    marginTop: 12,
+    backgroundColor: "#2A1620",
+    padding: 10,
+    borderRadius: 10,
+  },
 
-reasonTitle: {
-  color: "#FF8A80",
-  fontWeight: "800",
-  marginBottom: 5,
-},
+  reasonTitle: {
+    color: "#FF8A80",
+    fontWeight: "800",
+    marginBottom: 5,
+  },
 
-reasonText: {
-  color: "#FFFFFF",
-  lineHeight: 20,
-},
+  reasonText: {
+    color: "#FFFFFF",
+    lineHeight: 20,
+  },
 
-rejected: {
-  backgroundColor: "#D32F2F",
-},
+  rejected: {
+    backgroundColor: "#D32F2F",
+  },
 });

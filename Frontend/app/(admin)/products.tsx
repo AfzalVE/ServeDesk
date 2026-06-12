@@ -11,8 +11,10 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { API_URL } from "../../config/api";
+import { colors } from "../../constants/theme";
 
 export default function Products() {
+  const [refreshing, setRefreshing] = useState(false);
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -121,7 +123,16 @@ export default function Products() {
       .toLowerCase()
       .includes(search.toLowerCase())
   );
-
+  const onRefresh = async () => {
+    try {
+      setRefreshing(true);
+      await loadProducts();
+    } catch (e) {
+      console.log(e);
+    } finally {
+      setRefreshing(false);
+    }
+  };
   // ==========================
   // LOADER
   // ==========================
@@ -198,6 +209,8 @@ export default function Products() {
               </TouchableOpacity>
             </View>
           )}
+          refreshing={refreshing}
+          onRefresh={onRefresh}
         />
       )}
     </SafeAreaView>
@@ -210,7 +223,7 @@ export default function Products() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#07111F",
+    backgroundColor: colors.background,
     padding: 15,
   },
 
@@ -303,7 +316,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#07111F",
+    backgroundColor: colors.background,
   },
 
   loaderText: {

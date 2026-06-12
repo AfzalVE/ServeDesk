@@ -3,44 +3,38 @@ from sqlalchemy.orm import Session
 from app.models.user import User
 from app.schemas.user import UserUpdate
 
-
+# ==========================
+# GET EMPLOYEES
+# ==========================
 def get_all_employees(
-    db: Session
-):
-
-    return db.query(User).filter(
-        User.user_type == "EMPLOYEE"
-    ).all()
-
-
-def get_employee_by_id(
     db: Session,
-    employee_id: int
 ):
+    return (
+        db.query(User)
+        .filter(
+            User.user_type == "EMPLOYEE"
+        )
+        .order_by(
+            User.created_at.desc()
+        )
+        .all()
+    )
 
-    return db.query(User).filter(
-        User.id == employee_id
-    ).first()
 
-
-def get_all_customers(
-    db: Session
+# ==========================
+# GET SINGLE EMPLOYEE
+# ==========================
+def get_employee(
+    db: Session,
+    employee_id: int,
 ):
-
-    return db.query(User).filter(
-        User.user_type == "CUSTOMER"
-    ).all()
-
-
-def get_admins(
-    db: Session
-):
-
-    return db.query(User).filter(
-        User.user_type == "ADMIN"
-    ).all()
-
-
+    return (
+        db.query(User)
+        .filter(
+            User.id == employee_id
+        )
+        .first()
+    )
 
 
 # ==========================

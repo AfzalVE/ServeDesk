@@ -11,6 +11,7 @@ import {
 import { API_URL } from "../../config/api";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { signin } from "@/lib/auth";
+import { colors } from "../../constants/theme";
 
 export default function SignIn() {
   const [email, setEmail] = useState("");
@@ -105,7 +106,7 @@ export default function SignIn() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#07111F",
+    backgroundColor: colors.background,
     justifyContent: "center",
     padding: 25,
   },

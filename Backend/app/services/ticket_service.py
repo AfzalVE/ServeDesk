@@ -109,6 +109,28 @@ def get_customer_active_tickets(
         )
         .all()
     )
+
+def get_active_tickets(db: Session):
+    ten_minutes_ago = datetime.utcnow() - timedelta(minutes=10)
+
+    return (
+        db.query(SupportTicket)
+        .filter(
+            or_(
+                # Still waiting for an employee
+                SupportTicket.status == "OPEN",
+
+                # Accepted within last 10 minutes
+                and_(
+                    SupportTicket.status == "ACCEPTED",
+                    SupportTicket.accepted_at != None,
+                    SupportTicket.accepted_at >= ten_minutes_ago,
+                )
+            )
+        )
+        .order_by(SupportTicket.created_at.desc())
+        .all()
+    )
 # ===================================
 # ACCEPT TICKET
 # ===================================

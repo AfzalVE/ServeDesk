@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from sqlalchemy.orm import Session
 from typing import Optional
+from fastapi import Query
 
 from app.database import Base, engine, get_db
 from fastapi import WebSocket 
@@ -16,6 +17,7 @@ from app.schemas import (
     SignUpSchema,
     SignInSchema,
     UserResponse,
+    UserUpdate,
 
     ProductCreateSchema,
     ProductResponse,
@@ -27,12 +29,18 @@ from app.schemas import (
     TicketAssign,
     TicketReject,
     TicketResponse,
+
+    AnnouncementCreate,
+    AnnouncementResponse,
 )
+
+
 
 # ==========================
 # Services
 # ==========================
 from app.services.auth_service import create_user, authenticate_user
+
 
 from app.services.product_service import (
     create_product,
@@ -53,6 +61,7 @@ from app.services.ticket_service import (
     raise_ticket,
     get_all_tickets,
     get_customer_active_tickets,
+    get_active_tickets,
     accept_ticket,
     reject_ticket,
     cancel_ticket,
@@ -60,10 +69,20 @@ from app.services.ticket_service import (
 )
 from app.services.employee_service import (
     get_all_employees,
+    get_employee_by_id,
     get_all_customers,
-    get_admins
+    get_admins,
+    update_employee,
+    delete_employee
 )
-
+from app.services.announcement_service import (
+    create_announcement,
+    get_all_announcements,
+    get_today_announcements,
+    get_announcement,
+    update_announcement,
+    delete_announcement,
+)
 # ==========================
 # Models (for seeding only)
 # ==========================
@@ -193,7 +212,8 @@ def signin(payload: SignInSchema, db: Session = Depends(get_db)):
             "name": user.full_name,
             "email": user.email,
             "employee_id": user.employee_id,
-            "user_type": user.user_type
+            "user_type": user.user_type,
+            "created_at":user.created_at
         }
     }
 
@@ -255,8 +275,16 @@ def place_order(payload: OrderCreateSchema, db: Session = Depends(get_db)):
 
 
 @app.get("/orders")
-def orders(db: Session = Depends(get_db)):
-    return get_all_orders(db)
+def get_orders(
+    order_date: str | None = Query(
+        default=None
+    ),
+    db: Session = Depends(get_db),
+):
+    return get_all_orders(
+        db,
+        order_date
+    )
 
 
 @app.get("/orders/customer/{customer_id}")
@@ -335,7 +363,14 @@ async def create_ticket(
         )
 
     return ticket
-
+@app.get(
+    "/tickets/active",
+    response_model=list[TicketResponse]
+)
+async def active_tickets(
+    db: Session = Depends(get_db)
+):
+    return get_active_tickets(db)
 
 @app.get(
     "/tickets",
@@ -436,6 +471,125 @@ async def close_support(
         )
 
     return ticket
+
+# ==========================
+# Announcements
+# ==========================
+@app.post(
+    "/announcements",
+    response_model=AnnouncementResponse,
+)
+def create_announcement_api(
+    announcement: AnnouncementCreate,
+    db: Session = Depends(
+        get_db
+    ),
+):
+    return create_announcement(
+        db,
+        announcement,
+    )
+@app.get(
+    "/announcements",
+    response_model=list[
+        AnnouncementResponse
+    ],
+)
+def get_announcements_api(
+    db: Session = Depends(
+        get_db
+    ),
+):
+    return get_all_announcements(
+        db
+    )
+@app.get(
+    "/announcements/today",
+    response_model=list[AnnouncementResponse] | None
+)
+def today_announcement(
+    db: Session = Depends(get_db)
+):
+    print("came")
+    return get_today_announcements(db)
+@app.get(
+    "/announcements/{announcement_id}",
+    response_model=AnnouncementResponse,
+)
+def get_announcement_api(
+    announcement_id: int,
+    db: Session = Depends(
+        get_db
+    ),
+):
+    announcement = (
+        get_announcement(
+            db,
+            announcement_id,
+        )
+    )
+
+    if not announcement:
+        raise HTTPException(
+            status_code=404,
+            detail="Announcement not found",
+        )
+
+    return announcement
+
+@app.put(
+    "/announcements/{announcement_id}",
+    response_model=AnnouncementResponse,
+)
+def update_announcement_api(
+    announcement_id: int,
+    announcement: AnnouncementCreate,
+    db: Session = Depends(
+        get_db
+    ),
+):
+    updated = (
+        update_announcement(
+            db,
+            announcement_id,
+            announcement,
+        )
+    )
+
+    if not updated:
+        raise HTTPException(
+            status_code=404,
+            detail="Announcement not found",
+        )
+
+    return updated
+
+@app.delete(
+    "/announcements/{announcement_id}"
+)
+def delete_announcement_api(
+    announcement_id: int,
+    db: Session = Depends(
+        get_db
+    ),
+):
+    deleted = (
+        delete_announcement(
+            db,
+            announcement_id,
+        )
+    )
+
+    if not deleted:
+        raise HTTPException(
+            status_code=404,
+            detail="Announcement not found",
+        )
+
+    return {
+        "message":
+        "Announcement deleted successfully"
+    }
 # ==========================
 # EMPLOYEE / ADMIN
 # ==========================
@@ -452,3 +606,76 @@ def customers(db: Session = Depends(get_db)):
 @app.get("/admins")
 def admins(db: Session = Depends(get_db)):
     return get_admins(db)
+
+@app.get(
+    "/employees/{employee_id}",
+    response_model=UserResponse,
+)
+def employee(
+    employee_id: int,
+    db: Session = Depends(
+        get_db
+    ),
+):
+    employee = get_employee_by_id(
+        db,
+        employee_id,
+    )
+
+    if not employee:
+        raise HTTPException(
+            status_code=404,
+            detail="Employee not found",
+        )
+
+    return employee
+
+@app.put(
+    "/employees/{employee_id}",
+    response_model=UserResponse,
+)
+def edit_employee(
+    employee_id: int,
+    user: UserUpdate,
+    db: Session = Depends(
+        get_db
+    ),
+):
+    employee = update_employee(
+        db,
+        employee_id,
+        user,
+    )
+
+    if not employee:
+        raise HTTPException(
+            status_code=404,
+            detail="Employee not found",
+        )
+
+    return employee
+
+@app.delete(
+    "/employees/{employee_id}"
+)
+def remove_employee(
+    employee_id: int,
+    db: Session = Depends(
+        get_db
+    ),
+):
+    deleted = delete_employee(
+        db,
+        employee_id,
+    )
+
+    if not deleted:
+        raise HTTPException(
+            status_code=404,
+            detail="Employee not found",
+        )
+
+    return {
+        "message":
+        "Employee deleted successfully"
+    }

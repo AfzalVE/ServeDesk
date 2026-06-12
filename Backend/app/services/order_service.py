@@ -1,5 +1,7 @@
 from sqlalchemy.orm import Session
-
+from datetime import datetime
+from sqlalchemy import func
+from sqlalchemy.orm import Session
 from app.models.order import Order
 from app.models.product import Product   # IMPORTANT ADD
 from app.models.user import User       # IMPORTANT ADD
@@ -36,9 +38,39 @@ def create_order(
 # =========================
 # GET ALL ORDERS
 # =========================
-def get_all_orders(db: Session):
-    orders = db.query(Order).all()
-    return [enrich_order(db, o) for o in orders]
+
+
+def get_all_orders(
+    db: Session,
+    order_date: str = None
+):
+    query = db.query(Order)
+
+    if order_date:
+        try:
+            datetime.strptime(
+                order_date,
+                "%Y-%m-%d"
+            )
+
+            query = query.filter(
+                func.date(
+                    Order.created_at
+                ) == order_date
+            )
+        except ValueError:
+            pass
+
+    orders = (
+        query.order_by(
+            Order.created_at.desc()
+        ).all()
+    )
+
+    return [
+        enrich_order(db, order)
+        for order in orders
+    ]
 
 
 # =========================

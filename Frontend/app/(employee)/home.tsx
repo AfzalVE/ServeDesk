@@ -10,11 +10,11 @@ import {
   Alert,
   TextInput,
 } from "react-native";
-
+import { RefreshControl } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_URL } from "../../config/api";
 import { useRef } from "react";
-
+import { colors } from "../../constants/theme";
 // =====================
 // TYPES
 // =====================
@@ -38,22 +38,24 @@ type Ticket = {
 
   requested_employee_name?: string;
 
-  accepted_by_name?: string;
+  accepted_employee_name?: string;
 
-  rejected_by_name?: string;
+  rejected_employee_name?: string;
 
-  rejection_reason?: string;
+  reject_reason?: string;
 };
 
 // =====================
 // MAIN DASHBOARD
 // =====================
 export default function EmployeeDashboard() {
+
+  const [refreshing, setRefreshing] = useState(false);
   const [orders, setOrders] = useState<Order[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
-  const socket = useRef<WebSocket | null>( null );
+  const socket = useRef<WebSocket | null>(null);
 
   const [rejectingTicket, setRejectingTicket] =
     useState<number | null>(null);
@@ -66,62 +68,65 @@ export default function EmployeeDashboard() {
   // LOAD DATA
   // =====================
 
-useEffect(() => {
-  initialize();
+  useEffect(() => {
+    initialize();
 
-  socket.current = new WebSocket(
-    API_URL.replace("http", "ws") + "/ws/tickets"
-  );
+    socket.current = new WebSocket(
+      API_URL.replace("http", "ws") + "/ws/tickets"
+    );
 
-  socket.current.onopen = () => {
-    console.log("WebSocket Connected");
-    socket.current?.send("connected");
-  };
+    socket.current.onopen = () => {
+      console.log("WebSocket Connected");
+      socket.current?.send(JSON.stringify({ type: "ping" }));
+    };
 
-  socket.current.onmessage = (event) => {
-    console.log("Received:", event.data);
+    socket.current.onmessage = (event) => {
+      console.log("Received:", event.data);
 
-    try {
-      const ticket = JSON.parse(event.data);
+      try {
+        const parsed = JSON.parse(event.data);
 
-      setTickets((prev) => {
-        const exists = prev.find(
-          (t) => t.id === ticket.id
-        );
-
-        if (exists) {
-          return prev.map((t) =>
-            t.id === ticket.id ? ticket : t
-          );
+        if (parsed.event) {
+          fetchData();      // reload tickets
+          return;
         }
 
-        return [ticket, ...prev];
-      });
-    } catch (err) {
+        if (parsed.id) {
+          setTickets((prev) => {
+            const exists = prev.find(
+              (t) => t.id === parsed.id
+            );
+
+            if (exists) {
+              return prev.map((t) =>
+                t.id === parsed.id ? parsed : t
+              );
+            }
+
+            return [parsed, ...prev];
+          });
+        }
+      } catch (e) {
+        console.log(e);
+      }
+    };
+    socket.current.onerror = (error) => {
       console.log(
-        "Invalid websocket data",
-        err
+        "WebSocket Error:",
+        error
       );
-    }
-  };
+    };
 
-  socket.current.onerror = (error) => {
-    console.log(
-      "WebSocket Error:",
-      error
-    );
-  };
+    socket.current.onclose = () => {
+      console.log(
+        "WebSocket Closed"
+      );
+    };
 
-  socket.current.onclose = () => {
-    console.log(
-      "WebSocket Closed"
-    );
-  };
-
-  return () => {
-    socket.current?.close();
-  };
-}, []);
+    return () => {
+      socket.current?.close();
+    };
+  }, [user?.id]);
 
   const initialize = async () => {
     await loadUser();
@@ -193,7 +198,7 @@ useEffect(() => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            employee_id: user.id,
+            employee_id: user?.id,
             reason: rejectReason,
           }),
         }
@@ -227,12 +232,13 @@ useEffect(() => {
 
       const [orderRes, ticketRes] = await Promise.all([
         fetch(`${API_URL}/orders`),
-        fetch(`${API_URL}/tickets`),
+        fetch(`${API_URL}/tickets/active`),
       ]);
 
       const ordersData = await orderRes.json();
       const ticketsData = await ticketRes.json();
-      console.log("Fetched orders:", ordersData);
+      // console.log(ticketsData)
+      // console.log("Fetched orders:", ordersData);
 
       setOrders(Array.isArray(ordersData) ? ordersData : []);
       setTickets(Array.isArray(ticketsData) ? ticketsData : []);
@@ -243,6 +249,14 @@ useEffect(() => {
     }
   };
 
+  const onRefresh = async () => {
+    try {
+      setRefreshing(true);
+      await fetchData();
+    } finally {
+      setRefreshing(false);
+    }
+  };
   // =====================
   // LOADER
   // =====================
@@ -262,6 +276,14 @@ useEffect(() => {
     <ScrollView
       style={styles.container}
       showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          colors={["#2D8CFF"]}
+          tintColor="#2D8CFF"
+        />
+      }
       contentContainerStyle={{
         paddingBottom: 120,
       }}
@@ -323,107 +345,219 @@ useEffect(() => {
         🎫 Active Tickets
       </Text>
 
+
       {tickets.length === 0 ? (
-        <View style={styles.emptyCard}>
-          <Text style={styles.emptyText}>
-            No active tickets
+        <View style={styles.emptyAlert}>
+          <Text style={styles.emptyIcon}>🛡️</Text>
+          <Text style={styles.emptyTitle}>
+            No Active Support Requests
           </Text>
         </View>
       ) : (
-        tickets.slice(0, 5).map((ticket) => (
-          <View
-            key={ticket.id}
-            style={styles.ticketCard}
-          >
-            <Text style={styles.ticketTitle}>
-              {ticket.customer_name}
-            </Text>
+        tickets.slice(0, 5).map((ticket) => {
+          const isAccepted =
+            ticket.status === "ACCEPTED";
 
-            <Text style={styles.ticketItem}>
-              Requested :
-              {" "}
-              {ticket.requested_employee_name}
-            </Text>
+          const cardColor = isAccepted
+            ? "#1A2A1A"
+            : "#1A0F0F";
 
-            <Text style={styles.ticketItem}>
-              Accepted :
-              {" "}
-              {ticket.accepted_by_name || "-"}
-            </Text>
+          const borderColor = isAccepted
+            ? "#43A047"
+            : "#E53935";
 
-            <Text style={styles.ticketItem}>
-              Rejected :
-              {" "}
-              {ticket.rejected_by_name || "-"}
-            </Text>
+          const shadowColor = isAccepted
+            ? "#43A047"
+            : "#E53935";
 
-            {ticket.rejection_reason ? (
-              <Text style={styles.rejectReason}>
-                Reason :
-                {" "}
-                {ticket.rejection_reason}
-              </Text>
-            ) : null}
+          const badgeColor = isAccepted
+            ? "#2E7D32"
+            : "#B71C1C";
 
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>
-                {ticket.status}
-              </Text>
-            </View>
+          const titleColor = isAccepted
+            ? "#66BB6A"
+            : "#FF6B6B";
 
-            {ticket.status === "OPEN" && (
-              <>
-                <TouchableOpacity
-                  style={styles.acceptBtn}
-                  disabled={actionLoading}
-                  onPress={() =>
-                    acceptTicket(ticket.id)
-                  }
-                >
-                  <Text style={styles.actionText}>
-                    ✅ Accept
+          return (
+            <View
+              key={ticket.id}
+              style={[
+                styles.alertCard,
+                {
+                  backgroundColor: cardColor,
+                  borderColor: borderColor,
+                  shadowColor: shadowColor,
+                },
+              ]}
+            >
+              {/* HEADER */}
+              <View style={styles.alertHeader}>
+                <Text style={styles.alertIcon}>
+                  {isAccepted ? "✅" : "🚨"}
+                </Text>
+
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={[
+                      styles.alertTitle,
+                      { color: titleColor },
+                    ]}
+                  >
+                    {isAccepted
+                      ? "SUPPORT ACCEPTED"
+                      : "SUPPORT REQUEST"}
                   </Text>
-                </TouchableOpacity>
 
-                {rejectingTicket === ticket.id ? (
-                  <>
-                    <TextInput
-                      placeholder="Enter rejection reason"
-                      placeholderTextColor="#999"
-                      style={styles.rejectInput}
-                      value={rejectReason}
-                      onChangeText={setRejectReason}
-                    />
+                  <Text style={styles.customerName}>
+                    {ticket.customer_name}
+                  </Text>
+                </View>
+
+                <View
+                  style={[
+                    styles.statusBadge,
+                    {
+                      backgroundColor: badgeColor,
+                    },
+                  ]}
+                >
+                  <Text style={styles.statusText}>
+                    {ticket.status}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.divider} />
+
+              {/* DETAILS */}
+
+              <Text style={styles.infoText}>
+                👤 Requested :
+                <Text style={styles.infoValue}>
+                  {" "}
+                  {ticket.requested_employee_name ||
+                    "-"}
+                </Text>
+              </Text>
+
+              <Text style={styles.infoText}>
+                ✅ Accepted :
+                <Text style={styles.infoValue}>
+                  {" "}
+                  {ticket.accepted_employee_name ||
+                    "-"}
+                </Text>
+              </Text>
+
+              {ticket.rejected_employee_name && (
+                <Text style={styles.infoText}>
+                  ❌ Rejected :
+                  <Text style={styles.infoValue}>
+                    {" "}
+                    {ticket.rejected_employee_name}
+                  </Text>
+                </Text>
+              )}
+
+              {ticket.reject_reason ? (
+                <View
+                  style={[
+                    styles.reasonBox,
+                    {
+                      backgroundColor:
+                        isAccepted
+                          ? "#203320"
+                          : "#311515",
+                      borderLeftColor:
+                        isAccepted
+                          ? "#43A047"
+                          : "#FF5252",
+                    },
+                  ]}
+                >
+                  <Text style={styles.reasonTitle}>
+                    REJECTION REASON
+                  </Text>
+
+                  <Text style={styles.reasonText}>
+                    {ticket.reject_reason}
+                  </Text>
+                </View>
+              ) : null}
+
+              {/* ACTIONS */}
+
+              {ticket.status === "OPEN" && (
+                <>
+                  <View style={styles.buttonRow}>
+                    <TouchableOpacity
+                      style={styles.acceptBtn}
+                      disabled={actionLoading}
+                      onPress={() =>
+                        acceptTicket(ticket.id)
+                      }
+                    >
+                      <Text style={styles.actionText}>
+                        ACCEPT
+                      </Text>
+                    </TouchableOpacity>
 
                     <TouchableOpacity
                       style={styles.rejectBtn}
                       disabled={actionLoading}
                       onPress={() =>
-                        rejectTicket(ticket.id)
+                        setRejectingTicket(ticket.id)
                       }
                     >
                       <Text style={styles.actionText}>
-                        Submit Rejection
+                        REJECT
                       </Text>
                     </TouchableOpacity>
-                  </>
-                ) : (
-                  <TouchableOpacity
-                    style={styles.rejectBtn}
-                    onPress={() =>
-                      setRejectingTicket(ticket.id)
-                    }
-                  >
-                    <Text style={styles.actionText}>
-                      ❌ Reject
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </>
-            )}
-          </View>
-        ))
+                  </View>
+
+                  {rejectingTicket ===
+                    ticket.id && (
+                      <>
+                        <TextInput
+                          placeholder="Enter rejection reason..."
+                          placeholderTextColor="#999"
+                          style={styles.rejectInput}
+                          value={rejectReason}
+                          onChangeText={
+                            setRejectReason
+                          }
+                        />
+
+                        <TouchableOpacity
+                          style={
+                            styles.submitRejectBtn
+                          }
+                          disabled={
+                            actionLoading
+                          }
+                          onPress={() =>
+                            rejectTicket(
+                              ticket.id
+                            )
+                          }
+                        >
+                          <Text
+                            style={
+                              styles.actionText
+                            }
+                          >
+                            SUBMIT REJECTION
+                          </Text>
+                        </TouchableOpacity>
+                      </>
+                    )}
+                </>
+              )}
+            </View>
+          );
+        })
       )}
+
 
       {/* ORDERS */}
 
@@ -479,7 +613,7 @@ useEffect(() => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#07111F",
+    backgroundColor: colors.background,
   },
 
   loader: {
@@ -520,11 +654,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
-  actionText: {
-    color: "#fff",
-    fontWeight: "800",
-    fontSize: 12,
-  },
 
   card: {
     backgroundColor: "#101E2D",
@@ -682,29 +811,157 @@ const styles = StyleSheet.create({
     color: "#9DB1C7",
     textAlign: "center",
   },
-  acceptBtn: {
-    backgroundColor: "#43A047",
+
+
+
+  emptyAlert: {
+    backgroundColor: "#2A1111",
+    borderWidth: 2,
+    borderColor: "#E53935",
+    borderRadius: 18,
+    padding: 25,
+    alignItems: "center",
+    marginVertical: 10,
+  },
+
+  emptyIcon: {
+    fontSize: 42,
+  },
+
+  emptyTitle: {
+    color: "#FFF",
+    fontSize: 18,
+    fontWeight: "900",
+    marginTop: 10,
+  },
+
+  alertCard: {
+    backgroundColor: "#1A0F0F",
+    borderWidth: 2,
+    borderColor: "#E53935",
+    borderRadius: 18,
+    padding: 18,
+    marginBottom: 18,
+    shadowColor: "#E53935",
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+
+  alertHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  alertIcon: {
+    fontSize: 32,
+    marginRight: 12,
+  },
+
+  alertTitle: {
+    color: "#FF6B6B",
+    fontWeight: "900",
+    fontSize: 13,
+  },
+
+  customerName: {
+    color: "#FFF",
+    fontSize: 22,
+    fontWeight: "900",
+  },
+
+  statusBadge: {
+    backgroundColor: "#B71C1C",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+
+  statusText: {
+    color: "#FFF",
+    fontWeight: "900",
+    fontSize: 12,
+  },
+
+  divider: {
+    height: 1,
+    backgroundColor: "#5A2020",
+    marginVertical: 15,
+  },
+
+  infoText: {
+    color: "#FFCACA",
+    marginTop: 6,
+    fontSize: 14,
+  },
+
+  infoValue: {
+    color: "#FFF",
+    fontWeight: "800",
+  },
+
+  reasonBox: {
+    marginTop: 15,
+    backgroundColor: "#311515",
+    borderLeftWidth: 4,
+    borderLeftColor: "#FF5252",
     padding: 12,
+    borderRadius: 10,
+  },
+
+  reasonTitle: {
+    color: "#FF6B6B",
+    fontWeight: "900",
+    marginBottom: 4,
+  },
+
+  reasonText: {
+    color: "#FFF",
+  },
+
+  buttonRow: {
+    flexDirection: "row",
+    marginTop: 18,
+    gap: 10,
+  },
+
+  acceptBtn: {
+    flex: 1,
+    backgroundColor: "#2E7D32",
+    padding: 14,
     borderRadius: 12,
     alignItems: "center",
-    marginTop: 15,
   },
 
   rejectBtn: {
-    backgroundColor: "#E53935",
-    padding: 12,
+    flex: 1,
+    backgroundColor: "#C62828",
+    padding: 14,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+
+  submitRejectBtn: {
+    backgroundColor: "#8B0000",
+    padding: 14,
     borderRadius: 12,
     alignItems: "center",
     marginTop: 10,
   },
 
-
+  actionText: {
+    color: "#FFF",
+    fontWeight: "900",
+    letterSpacing: 1,
+  },
 
   rejectInput: {
-    backgroundColor: "#16293D",
+    backgroundColor: "#2B1B1B",
     color: "#FFF",
+    borderWidth: 1,
+    borderColor: "#E53935",
     borderRadius: 12,
     padding: 12,
-    marginTop: 10,
+    marginTop: 12,
   },
 });

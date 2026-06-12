@@ -11,6 +11,7 @@ import {
 } from "react-native";
 
 import { SafeAreaView } from "react-native-safe-area-context";
+import { colors } from "../../constants/theme";
 
 import { API_URL } from "../../config/api";
 
@@ -245,7 +246,7 @@ export default function SignUp() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#07111F",
+    backgroundColor: colors.background,
     padding: 25,
   },
 

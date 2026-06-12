@@ -6,6 +6,7 @@ from .auth_service import (
     authenticate_user,
 )
 
+
 # ==========================
 # PRODUCT SERVICE
 # ==========================
@@ -35,6 +36,7 @@ from .ticket_service import (
     raise_ticket,
     get_all_tickets,
     get_customer_active_tickets,
+    get_active_tickets,
     accept_ticket,
     reject_ticket,
     cancel_ticket,
@@ -49,6 +51,17 @@ from .employee_service import (
     get_employee_by_id,
     get_all_customers,
     get_admins,
+    update_employee,
+    delete_employee
+)
+
+from .announcement_service import(
+    create_announcement,
+    get_all_announcements,
+    get_today_announcements,
+    get_announcement,
+    update_announcement,
+    delete_announcement,
 )
 
 # ==========================
@@ -76,7 +89,9 @@ __all__ = [
 
     # ticket
     "raise_ticket",
-    "get_all_tickets",
+    "get_all_tickets"
+    "get_customer_active_tickets",
+    "get_active_tickets",
     "accept_ticket",
     "reject_ticket",
     "cancel_ticket",
@@ -88,4 +103,14 @@ __all__ = [
     "get_employee_by_id",
     "get_all_customers",
     "get_admins",
+    "update_employee",
+    "delete_employee",
+
+    #Announcement
+    "create_announcement",
+    "get_all_announcements",
+    "get_today_announcements",
+    "get_announcement",
+    "update_announcement",
+    "delete_announcement",
 ]

@@ -1,4 +1,4 @@
-import React, { useEffect, useState,useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   View,
   Text,
@@ -10,13 +10,17 @@ import {
   Alert,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
+import { colors } from "../../constants/theme";
+import { useRouter } from "expo-router";
+import { RefreshControl } from "react-native";
 
-
-
+import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { API_URL } from "../../config/api";
 export default function Home() {
+  const router = useRouter();
+  const [refreshing, setRefreshing] = useState(false);
   const [user, setUser] = useState<any>(null);
   const socket = useRef<WebSocket | null>(null);
   const [employees, setEmployees] = useState<any[]>([]);
@@ -26,8 +30,9 @@ export default function Home() {
   const [actionLoading, setActionLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [ticketRaised, setTicketRaised] = useState(false);
-
+  const [announcements, setAnnouncements] = useState<any[]>([]);
   const [ticketId, setTicketId] = useState<number | null>(null);
+  const [activeTickets, setActiveTickets] = useState<any[]>([]);
 
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,6 +45,7 @@ export default function Home() {
   const insets = useSafeAreaInsets();
 
 
+
   // =========================
   // LOAD DATA
   // =========================
@@ -47,6 +53,7 @@ export default function Home() {
     loadAll();
   }, []);
   useEffect(() => {
+    if (!user?.id) return;
 
     // Create websocket connection
     socket.current = new WebSocket(
@@ -61,6 +68,7 @@ export default function Home() {
       console.log("📩 WS Message:", event.data);
 
       // Refresh dashboard data whenever backend sends an event
+      if (!user?.id) return;
       fetchActiveTicket(user.id);
     };
 
@@ -75,7 +83,7 @@ export default function Home() {
     return () => {
       socket.current?.close();
     };
-  }, []);
+  }, [user?.id]);
   const loadAll = async () => {
     try {
       setLoading(true);
@@ -89,16 +97,22 @@ export default function Home() {
         setUser(userData);
       }
 
-      const [pRes, eRes] = await Promise.all([
+      const [pRes, eRes, aRes] = await Promise.all([
         fetch(`${API_URL}/products`),
         fetch(`${API_URL}/employees`),
+        fetch(`${API_URL}/announcements/today`),
       ]);
 
       const pData = await pRes.json();
       const eData = await eRes.json();
+      const aData = await aRes.json();
 
       setProducts(Array.isArray(pData) ? pData : []);
       setEmployees(Array.isArray(eData) ? eData : []);
+      setAnnouncements(
+        Array.isArray(aData) ? aData : []
+      );
+
 
       const initialQty: any = {};
 
@@ -109,7 +123,7 @@ export default function Home() {
       setQty(initialQty);
 
       if (userData) {
-        await fetchActiveTicket(userData.id);
+        const v = await fetchActiveTicket(userData.id);
       }
     } catch {
       Alert.alert(
@@ -120,6 +134,28 @@ export default function Home() {
       setLoading(false);
     }
   };
+  const getTicketStatus = (ticket: any) => {
+    switch (ticket?.status) {
+      case "ACCEPTED":
+        return {
+          label: "✅ Accepted",
+          color: colors.success,
+        };
+
+      case "REJECTED":
+        return {
+          label: "❌ Rejected",
+          color: colors.danger,
+        };
+
+      default:
+        return {
+          label: "⏳ Waiting for response",
+          color: colors.warning,
+        };
+    }
+  };
+  const statusUI = getTicketStatus(activeTicket);
 
   // =========================
   // EMPLOYEE TOGGLE
@@ -138,7 +174,6 @@ export default function Home() {
       }
 
       const data = await res.json();
-      console.log("Fetched employees:", data);
 
       setEmployees(Array.isArray(data) ? data : []);
       setShowEmployees(true);
@@ -157,9 +192,8 @@ export default function Home() {
       if (!res.ok) return;
 
       const data = await res.json();
-      console.log("Fetched tickets for active check:", data);
 
-      const active = data.find(
+      const active = data.filter(
         (t: any) =>
           t.customer_id === customerId &&
           (
@@ -168,17 +202,20 @@ export default function Home() {
           )
       );
 
-      if (active) {
-        setActiveTicket(active);
+      setActiveTickets(active);
+
+      if (active.length > 0) {
+        setActiveTicket(active[0]);
         setTicketRaised(true);
-        setTicketId(active.id);
+        setTicketId(active[0].id);
 
         setSelectedEmployee({
-          id: active.requested_employee_id,
+          id: active[0].requested_employee_id,
           full_name:
-            active.requested_employee_name,
+            active[0].requested_employee_name,
         });
       } else {
+        setActiveTickets([]);
         setActiveTicket(null);
         setTicketRaised(false);
         setTicketId(null);
@@ -302,7 +339,36 @@ export default function Home() {
       Alert.alert("Error", "Order failed");
     }
   };
+  const loadTodayAnnouncements = async () => {
+    try {
+      const res = await fetch(
+        `${API_URL}/announcements/today`
+      );
 
+      if (!res.ok) return;
+
+      const data = await res.json();
+
+      setAnnouncements(
+        Array.isArray(data) ? data : []
+      );
+    } catch (e) {
+      console.log(e);
+    }
+  };
+  const onRefresh = async () => {
+    try {
+      setRefreshing(true);
+      await loadAll();
+      if (user?.id) {
+        await fetchActiveTicket(user.id);
+      }
+    } catch (e) {
+      console.log(e);
+    } finally {
+      setRefreshing(false);
+    }
+  };
   // =========================
   // LOADING
   // =========================
@@ -322,6 +388,13 @@ export default function Home() {
         { paddingBottom: insets.bottom + 120 }
       ]}
       showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor="#2D8CFF"
+        />
+      }
     >
 
       {/* HEADER */}
@@ -330,7 +403,82 @@ export default function Home() {
         <Text style={styles.name}>{user?.name}</Text>
         <Text style={styles.sub}>What would you like today?</Text>
       </View>
+      {/* TODAY ANNOUNCEMENTS */}
 
+      <View style={styles.announcementContainer}>
+        <Text style={styles.sectionTitle}>
+          📢 Today's Announcements
+        </Text>
+
+        {announcements.length === 0 ? (
+          <View style={styles.emptyAnnouncement}>
+            <Text style={styles.emptyAnnouncementText}>
+              No announcements for today
+            </Text>
+          </View>
+        ) : (
+          <ScrollView
+            style={styles.announcementScroll}
+            nestedScrollEnabled
+            showsVerticalScrollIndicator={false}
+          >
+            {announcements.map((item) => (
+              <View
+                key={item.id}
+                style={styles.announcementCard}
+              >
+                <View
+                  style={styles.announcementTop}
+                >
+                  <View
+                    style={
+                      styles.announcementIcon
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.announcementEmoji
+                      }
+                    >
+                      📢
+                    </Text>
+                  </View>
+
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={
+                        styles.announcementTitle
+                      }
+                    >
+                      {item.title}
+                    </Text>
+
+                    <Text
+                      style={
+                        styles.announcementMessage
+                      }
+                    >
+                      {item.message}
+                    </Text>
+
+                    <Text
+                      style={
+                        styles.announcementDate
+                      }
+                    >
+                      {item.created_at
+                        ? new Date(
+                          item.created_at
+                        ).toLocaleString()
+                        : ""}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            ))}
+          </ScrollView>
+        )}
+      </View>
       {/* CALL EMPLOYEE */}
       <View style={styles.section}>
         <TouchableOpacity
@@ -353,39 +501,45 @@ export default function Home() {
                 </Text>
               </View>
             ) : (
-              employees.map((emp) => (
-                <TouchableOpacity
-                  key={emp.id}
-                  style={[
-                    styles.empCard,
-                    selectedEmployee?.id === emp.id &&
-                    styles.empActive,
-                  ]}
-                  onPress={() => raiseTicket(emp)}
-                >
-                  <Text style={styles.empName}>
-                    👤 {emp.full_name}
-                  </Text>
-
-                  <Text style={styles.empSub}>
-                    Employee ID : {emp.employee_id}
-                  </Text>
-
-                  <Text style={styles.empSub}>
-                    Status : 🟢 Available
-                  </Text>
-
-                  <Text
-                    style={{
-                      color: "#64B5F6",
-                      marginTop: 8,
-                      fontWeight: "700",
-                    }}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.employeeScroll}
+              >
+                {employees.map((emp) => (
+                  <TouchableOpacity
+                    key={emp.id}
+                    style={[
+                      styles.empCard,
+                      selectedEmployee?.id === emp.id &&
+                      styles.empActive,
+                    ]}
+                    onPress={() => raiseTicket(emp)}
                   >
-                    Tap to Raise Ticket
-                  </Text>
-                </TouchableOpacity>
-              ))
+                    <Text style={styles.empName}>
+                      👤 {emp.full_name}
+                    </Text>
+
+                    <Text style={styles.empSub}>
+                      Employee ID : {emp.employee_id}
+                    </Text>
+
+                    <Text style={styles.empSub}>
+                      Status : 🟢 Available
+                    </Text>
+
+                    <Text
+                      style={{
+                        color: "#64B5F6",
+                        marginTop: 8,
+                        fontWeight: "700",
+                      }}
+                    >
+                      Tap to Raise Ticket
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
             )}
           </View>
         )}
@@ -395,49 +549,152 @@ export default function Home() {
           <Text style={styles.ticketTitle}>
             🎫 Active Support Ticket
           </Text>
+          {
+            activeTickets.length > 1 && (
+              <TouchableOpacity
+                style={styles.activeTicketsButton}
+                onPress={() =>
+                  router.push("/(customer)/active_tickets")
+                }
+              >
+                <View style={styles.activeTicketsRow}>
+                  <Text style={styles.activeTicketsIcon}>
+                    🎫
+                  </Text>
 
+                  <Text style={styles.activeTicketsText}>
+                    View All Active Tickets
+                  </Text>
+
+                  <View style={styles.ticketCountBadge}>
+                    <Text style={styles.ticketCountText}>
+                      {activeTickets.length}
+                    </Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            )
+          }
+
+          {/* Requested Employee */}
           <Text style={styles.ticketText}>
             Requested Employee:
           </Text>
 
           <Text style={styles.ticketValue}>
-            {selectedEmployee?.full_name}
+            {activeTicket.requested_employee_name}
           </Text>
 
+          {/* Status */}
           <Text style={styles.ticketText}>
             Status:
           </Text>
 
           <View
             style={[
-              styles.waitingBadge,
-              activeTicket?.status === "ACCEPTED"
-                ? styles.acceptedBadge
-                : activeTicket?.status === "OPEN"
-                  ? styles.waitingBadge
-                  : styles.rejectedBadge,
+              styles.badge,
+              {
+                backgroundColor: statusUI.color,
+              },
             ]}
           >
-            <Text style={styles.waitingText}>
-              {activeTicket?.status === "ACCEPTED"
-                ? "✅ Accepted"
-                : activeTicket?.status === "REJECTED"
-                  ? "❌ Rejected"
-                  : "⏳ Waiting for response"}
+            <Text style={styles.badgeText}>
+              {statusUI.label}
             </Text>
           </View>
-          {activeTicket?.status === "ACCEPTED" && (
+
+          {/* Rejected Employee */}
+          {activeTicket?.rejected_employee_name && (
+            <>
+              <Text style={styles.ticketText}>
+                Rejected By:
+              </Text>
+
+              <Text
+                style={[
+                  styles.ticketValue,
+                  { color: "#FF8A80" },
+                ]}
+              >
+                {activeTicket.rejected_employee_name}
+              </Text>
+            </>
+          )}
+
+          {/* Reject Reason */}
+          {activeTicket?.reject_reason && (
+            <>
+              <Text style={styles.ticketText}>
+                Rejection Reason:
+              </Text>
+
+              <Text
+                style={[
+                  styles.ticketValue,
+                  {
+                    color: "#FFB74D",
+                  },
+                ]}
+              >
+                {activeTicket.reject_reason}
+              </Text>
+            </>
+          )}
+
+          {/* Accepted Employee */}
+          {activeTicket?.accepted_employee_name && (
             <>
               <Text style={styles.ticketText}>
                 Accepted By:
               </Text>
 
-              <Text style={styles.ticketValue}>
+              <Text
+                style={[
+                  styles.ticketValue,
+                  { color: "#66BB6A" },
+                ]}
+              >
                 {activeTicket.accepted_employee_name}
               </Text>
             </>
           )}
-          {/* Show Cancel button only while ticket is OPEN */}
+
+          {/* Someone rejected but another accepted */}
+          {activeTicket?.accepted_employee_name &&
+            activeTicket?.rejected_employee_name && (
+              <View
+                style={{
+                  marginTop: 12,
+                  padding: 12,
+                  backgroundColor: "#1B2A1F",
+                  borderRadius: 10,
+                }}
+              >
+                <Text
+                  style={{
+                    color: "#81C784",
+                    fontWeight: "700",
+                    lineHeight: 20,
+                  }}
+                >
+                  ✅ {activeTicket.rejected_employee_name} could
+                  not take your request.
+                </Text>
+
+                <Text
+                  style={{
+                    color: "#81C784",
+                    marginTop: 4,
+                    lineHeight: 20,
+                  }}
+                >
+                  {activeTicket.accepted_employee_name} has
+                  accepted your ticket and is on the way.
+                </Text>
+              </View>
+            )}
+
+          {/* OPEN */}
           {activeTicket?.status === "OPEN" && (
             <>
               <TouchableOpacity
@@ -449,7 +706,9 @@ export default function Home() {
                 disabled={actionLoading}
                 onPress={cancelTicket}
               >
-                <Text style={styles.cancelButtonText}>
+                <Text
+                  style={styles.cancelButtonText}
+                >
                   {actionLoading
                     ? "Cancelling..."
                     : "Cancel Ticket"}
@@ -457,28 +716,66 @@ export default function Home() {
               </TouchableOpacity>
 
               <Text style={styles.ticketHint}>
-                If rejected, another employee can
-                accept your request.
+                If one employee rejects your
+                request, another employee can
+                still accept it.
               </Text>
             </>
           )}
 
-          {/* Show accepted message */}
+          {/* ACCEPTED */}
           {activeTicket?.status === "ACCEPTED" && (
-            <Text
-              style={[
-                styles.ticketHint,
-                {
-                  color: "#4CAF50",
-                  fontWeight: "700",
-                },
-              ]}
+            <View
+              style={{
+                marginTop: 12,
+                padding: 12,
+                backgroundColor: "#1B2A1F",
+                borderRadius: 10,
+              }}
             >
-              ✅ Your request has been accepted.
-              An employee is on the way.
-            </Text>
+              <Text
+                style={{
+                  color: "#66BB6A",
+                  marginTop: 4,
+                }}
+              >
+                Employee:{" "}
+                {
+                  activeTicket.accepted_employee_name
+                }
+              </Text>
+            </View>
           )}
 
+          {/* REJECTED */}
+          {activeTicket?.status === "REJECTED" && (
+            <View
+              style={{
+                marginTop: 12,
+                padding: 12,
+                backgroundColor: "#2A1818",
+                borderRadius: 10,
+              }}
+            >
+              <Text
+                style={{
+                  color: "#EF5350",
+                  fontWeight: "700",
+                }}
+              >
+                ❌ Your request was rejected.
+              </Text>
+
+              <Text
+                style={{
+                  color: "#EF9A9A",
+                  marginTop: 4,
+                }}
+              >
+                Reason: {activeTicket.reject_reason}
+              </Text>
+            </View>
+          )}
         </View>
       )}
 
@@ -557,14 +854,14 @@ export default function Home() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#07111F",
+    backgroundColor: colors.background,
   },
 
   loader: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#07111F",
+    backgroundColor: colors.background,
   },
 
   header: {
@@ -607,14 +904,16 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "800",
   },
-
+  employeeScroll: {
+    paddingVertical: 5,
+    paddingRight: 15,
+  },
   empCard: {
     backgroundColor: "#16293D",
     padding: 12,
     borderRadius: 12,
-    marginRight: 10,
-    marginTop: 10,
-    width: 140,
+    marginRight: 12,
+    width: 170,
   },
 
   empActive: {
@@ -723,6 +1022,7 @@ const styles = StyleSheet.create({
     marginTop: 15,
     padding: 18,
     borderRadius: 16,
+    gap: 6,
   },
 
   ticketTitle: {
@@ -816,5 +1116,124 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 10,
     alignSelf: "flex-start",
+  },
+  badge: {
+    marginTop: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    alignSelf: "flex-start",
+  },
+
+  badgeText: {
+    color: "#FFF",
+    fontWeight: "800",
+  },
+  announcementContainer: {
+    marginHorizontal: 15,
+    marginTop: 15,
+  },
+
+  announcementScroll: {
+    maxHeight: 280,
+  },
+
+  announcementCard: {
+    backgroundColor: "#101E2D",
+    padding: 18,
+    borderRadius: 18,
+    marginBottom: 12,
+    borderLeftWidth: 5,
+    borderLeftColor: "#FFC107",
+  },
+
+  announcementTop: {
+    flexDirection: "row",
+  },
+
+  announcementIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: "#163A63",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 15,
+  },
+
+  announcementEmoji: {
+    fontSize: 22,
+  },
+
+  announcementTitle: {
+    color: "#FFF",
+    fontSize: 17,
+    fontWeight: "900",
+  },
+
+  announcementMessage: {
+    color: "#D6E4F0",
+    marginTop: 8,
+    lineHeight: 22,
+  },
+
+  announcementDate: {
+    color: "#6F8399",
+    marginTop: 10,
+    fontSize: 11,
+  },
+
+  emptyAnnouncement: {
+    backgroundColor: "#101E2D",
+    padding: 20,
+    borderRadius: 16,
+  },
+
+  emptyAnnouncementText: {
+    color: "#AAA",
+    textAlign: "center",
+  },
+  activeTicketsButton: {
+    backgroundColor: "#2D8CFF",
+    marginHorizontal: 15,
+    marginTop: 15,
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    elevation: 3,
+  },
+
+  activeTicketsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+
+  activeTicketsIcon: {
+    fontSize: 22,
+  },
+
+  activeTicketsText: {
+    flex: 1,
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "800",
+    marginLeft: 12,
+  },
+
+  ticketCountBadge: {
+    backgroundColor: "#FFFFFF",
+    minWidth: 30,
+    height: 30,
+    borderRadius: 15,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 8,
+  },
+
+  ticketCountText: {
+    color: "#2D8CFF",
+    fontSize: 14,
+    fontWeight: "900",
   },
 });

@@ -17,9 +17,6 @@ import { colors } from "../../constants/theme";
 export default function AnnouncementsPage() {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [title, setTitle] = useState("");
-  const [message, setMessage] = useState("");
-  const [creating, setCreating] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -40,67 +37,7 @@ export default function AnnouncementsPage() {
       setLoading(false);
     }
   };
-  const createAnnouncement =
-    async () => {
-      if (
-        !title.trim() ||
-        !message.trim()
-      ) {
-        Alert.alert(
-          "Error",
-          "Title and message are required"
-        );
-        return;
-      }
 
-      try {
-        setCreating(true);
-
-        const res = await fetch(
-          `${API_URL}/announcements`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-            body: JSON.stringify({
-              title,
-              message,
-            }),
-          }
-        );
-
-        const data =
-          await res.json();
-
-        if (!res.ok) {
-          Alert.alert(
-            "Error",
-            data.detail ||
-            "Failed to create announcement"
-          );
-          return;
-        }
-
-        setTitle("");
-        setMessage("");
-
-        await loadAnnouncements();
-
-        Alert.alert(
-          "Success",
-          "Announcement published"
-        );
-      } catch {
-        Alert.alert(
-          "Error",
-          "Server error"
-        );
-      } finally {
-        setCreating(false);
-      }
-    };
   const onRefresh = async () => {
     setRefreshing(true);
     await loadAnnouncements();
@@ -151,53 +88,13 @@ export default function AnnouncementsPage() {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.createCard}>
-            <Text
-              style={styles.createTitle}
-            >
-              Create Announcement
-            </Text>
-
-            <TextInput
-              placeholder="Announcement title"
-              placeholderTextColor="#777"
-              value={title}
-              onChangeText={setTitle}
-              style={styles.titleInput}
-            />
-
-            <TextInput
-              placeholder="Write announcement..."
-              placeholderTextColor="#777"
-              multiline
-              value={message}
-              onChangeText={setMessage}
-              style={styles.input}
-            />
-
-            <TouchableOpacity
-              style={styles.publishBtn}
-              onPress={
-                createAnnouncement
-              }
-              disabled={creating}
-            >
-              <Text
-                style={styles.publishText}
-              >
-                {creating
-                  ? "Publishing..."
-                  : "PUBLISH"}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
+        
           <Text
             style={
               styles.sectionTitle
             }
           >
-            Recent Announcements
+            All Announcements
           </Text>
         </>
       }

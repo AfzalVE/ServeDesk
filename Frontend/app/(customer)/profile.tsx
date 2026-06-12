@@ -1,166 +1,339 @@
-import React, { useEffect, useState } from "react";
+import React, {
+  useEffect,
+  useState,
+} from "react";
+
 import {
   View,
   Text,
   StyleSheet,
-  TextInput,
+  ActivityIndicator,
   TouchableOpacity,
   Alert,
+  ScrollView,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { RefreshControl } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+
+import { colors } from "../../constants/theme";
 
 export default function Profile() {
-  const [user, setUser] = useState<any>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const insets = useSafeAreaInsets();
+  const [loading, setLoading] =
+    useState(true);
 
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-
-  const [oldPass, setOldPass] = useState("");
-  const [newPass, setNewPass] = useState("");
+  const [user, setUser] =
+    useState<any>(null);
 
   useEffect(() => {
     loadUser();
   }, []);
 
   const loadUser = async () => {
-    const data = await AsyncStorage.getItem("user");
-    if (data) {
-      const parsed = JSON.parse(data);
-      setUser(parsed);
-      setName(parsed.name);
-      setEmail(parsed.email);
+    try {
+      const data =
+        await AsyncStorage.getItem(
+          "user"
+        );
+
+      if (data) {
+        setUser(JSON.parse(data));
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
-  const updateProfile = async () => {
-    Alert.alert("Success", "Profile updated (mock UI)");
-  };
+  const logout = () => {
+    Alert.alert(
+      "Logout",
+      "Are you sure?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Logout",
+          style: "destructive",
+          onPress: async () => {
+            await AsyncStorage.removeItem(
+              "user"
+            );
 
-  const changePassword = async () => {
-    if (!oldPass || !newPass) {
-      Alert.alert("Error", "Fill password fields");
-      return;
+            router.replace("/");
+          },
+        },
+      ]
+    );
+  };
+  const onRefresh = async () => {
+    try {
+      setRefreshing(true);
+      await loadUser();
+    } finally {
+      setRefreshing(false);
     }
-
-    Alert.alert("Success", "Password changed (mock UI)");
   };
-
-  const logout = async () => {
-    await AsyncStorage.removeItem("user");
-    router.replace("/(auth)/sign-in");
-  };
+  if (loading) {
+    return (
+      <View style={styles.loader}>
+        <ActivityIndicator
+          size="large"
+          color="#2D8CFF"
+        />
+      </View>
+    );
+  }
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <Text style={styles.title}>Profile 👤</Text>
-
-      {/* PROFILE INFO */}
-      <View style={styles.card}>
-        <Text style={styles.label}>Name</Text>
-        <TextInput value={name} onChangeText={setName} style={styles.input} />
-
-        <Text style={styles.label}>Email</Text>
-        <TextInput
-          value={email}
-          onChangeText={setEmail}
-          style={styles.input}
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={{
+        padding: 15,
+        paddingBottom: insets.bottom + 120,
+        flexGrow: 1,
+      }}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor="#2D8CFF"
         />
+      }
+    >
+      {/* Header */}
 
-        <TouchableOpacity style={styles.btn} onPress={updateProfile}>
-          <Text style={styles.btnText}>Update Profile</Text>
-        </TouchableOpacity>
+      <View style={styles.profileCard}>
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>
+            {user?.name
+              ?.charAt(0)
+              ?.toUpperCase()}
+          </Text>
+        </View>
+
+        <Text style={styles.name}>
+          {user?.name}
+        </Text>
+
+        <View style={styles.roleBadge}>
+          <Text style={styles.roleText}>
+            {user?.user_type}
+          </Text>
+        </View>
       </View>
 
-      {/* PASSWORD */}
-      <View style={styles.card}>
-        <Text style={styles.label}>Old Password</Text>
-        <TextInput
-          secureTextEntry
-          value={oldPass}
-          onChangeText={setOldPass}
-          style={styles.input}
-        />
+      {/* Details */}
 
-        <Text style={styles.label}>New Password</Text>
-        <TextInput
-          secureTextEntry
-          value={newPass}
-          onChangeText={setNewPass}
-          style={styles.input}
-        />
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>
+          ACCOUNT INFORMATION
+        </Text>
 
-        <TouchableOpacity style={styles.btn} onPress={changePassword}>
-          <Text style={styles.btnText}>Change Password</Text>
-        </TouchableOpacity>
+        <View style={styles.infoCard}>
+          <Text style={styles.label}>
+            Employee ID
+          </Text>
+          <Text style={styles.value}>
+            {user?.employee_id ||
+              "Not Assigned"}
+          </Text>
+        </View>
+
+        <View style={styles.infoCard}>
+          <Text style={styles.label}>
+            Full Name
+          </Text>
+          <Text style={styles.value}>
+            {user?.name}
+          </Text>
+        </View>
+
+        <View style={styles.infoCard}>
+          <Text style={styles.label}>
+            Email
+          </Text>
+          <Text style={styles.value}>
+            {user?.email}
+          </Text>
+        </View>
+
+        <View style={styles.infoCard}>
+          <Text style={styles.label}>
+            User Type
+          </Text>
+          <Text style={styles.value}>
+            {user?.user_type}
+          </Text>
+        </View>
+
+        <View style={styles.infoCard}>
+          <Text style={styles.label}>
+            Member Since
+          </Text>
+          <Text style={styles.value}>
+            {user?.created_at
+              ? new Date(
+                user.created_at
+              ).toLocaleDateString()
+              : "-"}
+          </Text>
+        </View>
       </View>
 
-      {/* LOGOUT */}
-      <TouchableOpacity style={styles.logout} onPress={logout}>
-        <Text style={styles.logoutText}>Logout</Text>
-      </TouchableOpacity>
-    </SafeAreaView>
+      {/* Actions */}
+
+      <View style={styles.section}>
+        <TouchableOpacity
+          style={styles.actionButton}
+        >
+          <Text
+            style={styles.actionText}
+          >
+            ✏️ Edit Profile
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionButton}
+        >
+          <Text
+            style={styles.actionText}
+          >
+            🔒 Change Password
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.logoutButton}
+          onPress={logout}
+        >
+          <Text
+            style={styles.logoutText}
+          >
+            🚪 Logout
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
   );
 }
-
 const styles = StyleSheet.create({
-  safe: {
+  container: {
     flex: 1,
-    backgroundColor: "#07111F",
-    padding: 15,
+    backgroundColor:
+      colors.background,
+
+  },
+  loader: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor:
+      colors.background,
   },
 
-  title: {
-    color: "#fff",
+  profileCard: {
+    backgroundColor: "#101E2D",
+    borderRadius: 22,
+    padding: 25,
+    alignItems: "center",
+    marginBottom: 25,
+  },
+
+  avatar: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: "#2D8CFF",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  avatarText: {
+    color: "#FFF",
+    fontSize: 40,
+    fontWeight: "900",
+  },
+
+  name: {
+    color: "#FFF",
     fontSize: 24,
     fontWeight: "900",
-    marginBottom: 15,
+    marginTop: 15,
   },
 
-  card: {
+  roleBadge: {
+    marginTop: 12,
+    backgroundColor: "#163A63",
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+
+  roleText: {
+    color: "#2D8CFF",
+    fontWeight: "900",
+  },
+
+  section: {
+    marginBottom: 20,
+  },
+
+  sectionTitle: {
+    color: "#7E96AD",
+    fontWeight: "900",
+    marginBottom: 12,
+    letterSpacing: 1,
+  },
+
+  infoCard: {
     backgroundColor: "#101E2D",
+    borderRadius: 14,
     padding: 15,
-    borderRadius: 15,
-    marginBottom: 15,
+    marginBottom: 10,
   },
 
   label: {
-    color: "#9DB1C7",
-    marginTop: 10,
+    color: "#7E96AD",
+    fontSize: 13,
   },
 
-  input: {
-    backgroundColor: "#16293D",
-    color: "#fff",
-    padding: 12,
-    borderRadius: 10,
-    marginTop: 5,
-  },
-
-  btn: {
-    backgroundColor: "#2D8CFF",
-    padding: 12,
-    borderRadius: 12,
-    marginTop: 15,
-    alignItems: "center",
-  },
-
-  btnText: {
-    color: "#fff",
+  value: {
+    color: "#FFF",
     fontWeight: "800",
+    fontSize: 16,
+    marginTop: 4,
   },
 
-  logout: {
-    backgroundColor: "#E53935",
-    padding: 14,
-    borderRadius: 12,
-    alignItems: "center",
+  actionButton: {
+    backgroundColor: "#101E2D",
+    padding: 16,
+    borderRadius: 14,
+    marginBottom: 10,
+  },
+
+  actionText: {
+    color: "#FFF",
+    fontWeight: "800",
+    textAlign: "center",
+  },
+
+  logoutButton: {
+    backgroundColor: "#B71C1C",
+    padding: 16,
+    borderRadius: 14,
     marginTop: 10,
   },
 
   logoutText: {
-    color: "#fff",
+    color: "#FFF",
     fontWeight: "900",
+    textAlign: "center",
   },
 });
