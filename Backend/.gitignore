@@ -1,0 +1,102 @@
+# =========================
+
+# Python / FastAPI
+
+# =========================
+
+**pycache**/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv/
+
+# Environment Variables
+
+.env
+.env.*
+!.env.example
+
+# SQLite Database
+
+*.db
+*.sqlite3
+
+# Logs
+
+*.log
+
+# Pytest
+
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Mypy
+
+.mypy_cache/
+
+# IDEs
+
+.vscode/
+.idea/
+
+# OS Files
+
+.DS_Store
+Thumbs.db
+
+# =========================
+
+# React Native / Expo
+
+# =========================
+
+node_modules/
+
+# Expo
+
+.expo/
+.expo-shared/
+
+# React Native
+
+android/app/build/
+android/.gradle/
+android/build/
+
+ios/build/
+ios/Pods/
+
+# Metro
+
+.metro-health-check*
+
+# npm/yarn
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# EAS
+
+*.apk
+*.aab
+
+# Build outputs
+
+dist/
+build/
+
+# =========================
+
+# Misc
+
+# =========================
+
+coverage/
+tmp/
+temp/
