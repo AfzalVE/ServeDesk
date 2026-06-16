@@ -1,5 +1,4 @@
-import React, { useEffect, useState } from "react";
-import {
+import React, { useEffect, useState, useRef } from "react"; import {
   Alert,
   ActivityIndicator,
   Modal,
@@ -11,9 +10,10 @@ import {
   View,
 } from "react-native";
 import { RefreshControl } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { API_URL } from "../../config/api";
 import { colors } from "../../constants/theme";
+
 
 type Order = {
   id: number;
@@ -30,6 +30,9 @@ export default function OrdersPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const orderSocket = useRef<WebSocket | null>(null);
 
   // reject modal
   const [rejectModal, setRejectModal] = useState(false);
@@ -38,7 +41,136 @@ export default function OrdersPage() {
 
   useEffect(() => {
     fetchOrders();
-  }, []);
+    // =====================
+    // ORDER WEBSOCKET
+    // =====================
+
+    orderSocket.current = new WebSocket(
+      API_URL.replace(/^http/, "ws") + "/ws/orders"
+    );
+
+
+    orderSocket.current.onopen = () => {
+      console.log("✅ Orders Page WS Connected");
+    };
+
+
+    orderSocket.current.onmessage = (event) => {
+
+      try {
+
+        console.log(
+          "🔥 RAW ORDER MESSAGE:",
+          event.data
+        );
+
+
+        const parsed = JSON.parse(event.data);
+
+
+        console.log(
+          "📦 ORDER SOCKET:",
+          parsed
+        );
+
+
+        // =====================
+        // NEW ORDER CREATED
+        // =====================
+        if (parsed.type === "order_created") {
+
+          const newOrder = parsed.order;
+
+
+          setOrders((prev) => {
+
+            // avoid duplicate
+            const exists = prev.some(
+              (o) => o.id === newOrder.id
+            );
+
+
+            if (exists) {
+              return prev;
+            }
+
+
+            return [
+              newOrder,
+              ...prev
+            ];
+
+          });
+
+        }
+
+
+
+        // =====================
+        // ORDER STATUS UPDATED
+        // =====================
+        if (
+          parsed.type === "order_update"
+        ) {
+
+          const updatedOrder = parsed.order;
+
+
+          setOrders((prev) =>
+            prev.map((order) =>
+              order.id === updatedOrder.id
+                ? updatedOrder
+                : order
+            )
+          );
+
+        }
+
+
+
+      } catch (error) {
+
+        console.log(
+          "Order WS Error:",
+          error
+        );
+
+      }
+
+    };
+
+
+    orderSocket.current.onerror = (error) => {
+      console.log(
+        "Order WS Error:",
+        error
+      );
+    };
+
+
+    orderSocket.current.onclose = () => {
+
+      console.log(
+        "❌ Orders Page WS Closed"
+      );
+
+    };
+
+
+    return () => {
+
+      if (orderSocket.current) {
+
+        orderSocket.current.close();
+
+        orderSocket.current = null;
+
+      }
+
+    };
+
+
+  }, []);;
 
   // =========================
   // FETCH ORDERS
@@ -83,35 +215,35 @@ export default function OrdersPage() {
   // UPDATE STATUS (BACKEND FIXED)
   // =========================
   const updateStatus = async (
-  id: number,
-  status: string
-) => {
-  try {
-    let url = `${API_URL}/orders/${id}/status?status=${status}`;
+    id: number,
+    status: string
+  ) => {
+    try {
+      let url = `${API_URL}/orders/${id}/status?status=${status}`;
 
-    if (
-      status === "REJECTED" &&
-      rejectReason.trim()
-    ) {
-      url += `&reject_reason=${encodeURIComponent(
-        rejectReason
-      )}`;
-    }
+      if (
+        status === "REJECTED" &&
+        rejectReason.trim()
+      ) {
+        url += `&reject_reason=${encodeURIComponent(
+          rejectReason
+        )}`;
+      }
 
-    const res = await fetch(url, {
-      method: "PUT",
-    });
+      const res = await fetch(url, {
+        method: "PUT",
+      });
 
-    if (!res.ok) {
-      const err = await res.text();
-      console.log(err);
-      throw new Error();
-    }
+      if (!res.ok) {
+        const err = await res.text();
+        console.log(err);
+        throw new Error();
+      }
 
-    setOrders((prev) =>
-      prev.map((o) =>
-        o.id === id
-          ? {
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === id
+            ? {
               ...o,
               status,
               reject_reason:
@@ -119,17 +251,36 @@ export default function OrdersPage() {
                   ? rejectReason
                   : o.reject_reason,
             }
-          : o
-      )
-    );
-  } catch {
-    Alert.alert(
-      "Error",
-      "Failed to update order"
-    );
-  }
-};
+            : o
+        )
+      );
+    } catch {
+      Alert.alert(
+        "Error",
+        "Failed to update order"
+      );
+    }
+  };
+  const formatDate = (date: Date) => {
+    return date.toISOString().split("T")[0];
+  };
 
+  const changeDay = (days: number) => {
+    const newDate = new Date(selectedDate);
+    newDate.setDate(newDate.getDate() + days);
+    setSelectedDate(newDate);
+  };
+
+  const onDateChange = (
+    event: any,
+    date?: Date
+  ) => {
+    setShowDatePicker(false);
+
+    if (date) {
+      setSelectedDate(date);
+    }
+  };
   // =========================
   // ACTIONS
   // =========================
@@ -148,39 +299,46 @@ export default function OrdersPage() {
   };
 
   const confirmReject = async () => {
-  if (!rejectReason.trim()) {
-    Alert.alert(
-      "Required",
-      "Reject reason is required"
+    if (!rejectReason.trim()) {
+      Alert.alert(
+        "Required",
+        "Reject reason is required"
+      );
+      return;
+    }
+
+    if (selectedOrder === null) return;
+
+    await updateStatus(
+      selectedOrder,
+      "REJECTED"
     );
-    return;
-  }
 
-  if (selectedOrder === null) return;
+    setRejectModal(false);
+    setRejectReason("");
+    setSelectedOrder(null);
 
-  await updateStatus(
-    selectedOrder,
-    "REJECTED"
-  );
+    Alert.alert(
+      "Success",
+      "Order Rejected"
+    );
+  };
+  const filteredOrders = orders.filter((order) => {
+    return (
+      formatDate(
+        new Date(order.created_at)
+      ) === formatDate(selectedDate)
+    );
+  });
 
-  setRejectModal(false);
-  setRejectReason("");
-  setSelectedOrder(null);
-
-  Alert.alert(
-    "Success",
-    "Order Rejected"
-  );
-};
-
-const onRefresh = async () => {
-  try {
-    setRefreshing(true);
-    await fetchOrders();
-  } finally {
-    setRefreshing(false);
-  }
-};
+  const onRefresh = async () => {
+    try {
+      setRefreshing(true);
+      await fetchOrders();
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   // =========================
   // LOADING UI
@@ -194,145 +352,209 @@ const onRefresh = async () => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <ScrollView
-       refreshControl={
-    <RefreshControl
-      refreshing={refreshing}
-      onRefresh={onRefresh}
-      colors={["#2D8CFF"]}
-      tintColor="#2D8CFF"
-    />
-  }
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={["#2D8CFF"]}
+            tintColor="#2D8CFF"
+          />
+        }
       >
-        <Text style={styles.title}>All Orders</Text>
+        <Text style={styles.title}>
+          All Orders
+        </Text>
 
-        {orders.map((order) => {
-          const isLocked =
-            order.status === "DELIVERED" ||
-            order.status === "REJECTED";
+        <View style={styles.dateRow}>
+          <TouchableOpacity
+            style={styles.dayButton}
+            onPress={() => changeDay(-1)}
+          >
+            <Text style={styles.dayButtonText}>
+              ◀
+            </Text>
+          </TouchableOpacity>
 
-          return (
-            <View key={order.id} style={styles.card}>
-              <View style={styles.cardHeader}>
-                <Text style={styles.orderId}>
-                  🧾 Order #{order.id}
-                </Text>
+          <TouchableOpacity
+            style={styles.dateButton}
+            onPress={() =>
+              setShowDatePicker(true)
+            }
+          >
+            <Text style={styles.dateText}>
+              📅 {selectedDate.toDateString()}
+            </Text>
+          </TouchableOpacity>
 
-                <View
-                  style={[
-                    styles.statusBadge,
-                    order.status === "PENDING" &&
-                    styles.pending,
-                    order.status === "ACCEPTED" &&
-                    styles.accepted,
-                    order.status === "DELIVERED" &&
-                    styles.delivered,
-                    order.status === "REJECTED" &&
-                    styles.rejected,
-                  ]}
-                >
-                  <Text style={styles.statusText}>
-                    {order.status}
+          <TouchableOpacity
+            style={styles.dayButton}
+            onPress={() => changeDay(1)}
+          >
+            <Text style={styles.dayButtonText}>
+              ▶
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {showDatePicker && (
+          <DateTimePicker
+            value={selectedDate}
+            mode="date"
+            display="default"
+            onChange={onDateChange}
+          />
+        )}
+
+        {filteredOrders.length === 0 ? (
+          <Text style={styles.empty}>
+            No orders found
+          </Text>
+        ) : (
+          filteredOrders.map((order) => {
+            const isLocked =
+              order.status === "DELIVERED" ||
+              order.status === "REJECTED";
+
+            return (
+              <View key={order.id} style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <Text style={styles.orderId}>
+                    🧾 Order #{order.id}
+                  </Text>
+
+                  <View
+                    style={[
+                      styles.statusBadge,
+                      order.status === "PENDING" &&
+                      styles.pending,
+                      order.status === "ACCEPTED" &&
+                      styles.accepted,
+                      order.status === "DELIVERED" &&
+                      styles.delivered,
+                      order.status === "REJECTED" &&
+                      styles.rejected,
+                      order.status === "CANCELLED" &&
+                      styles.cancelled,
+                    ]}
+                  >
+                    <Text style={styles.statusText}>
+                      {order.status}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.divider} />
+
+                <View style={styles.infoRow}>
+                  <Text style={styles.label}>
+                    🍔 Product
+                  </Text>
+
+                  <Text style={styles.value}>
+                    {order.display_name}
                   </Text>
                 </View>
-              </View>
 
-              <View style={styles.divider} />
+                <View style={styles.infoRow}>
+                  <Text style={styles.label}>
+                    👤 Customer
+                  </Text>
 
-              <View style={styles.infoRow}>
-                <Text style={styles.label}>
-                  🍔 Product
-                </Text>
+                  <Text style={styles.value}>
+                    {order.customer_name}
+                  </Text>
+                </View>
 
-                <Text style={styles.value}>
-                  {order.display_name}
-                </Text>
-              </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.label}>
+                    🆔 Customer ID
+                  </Text>
 
-              <View style={styles.infoRow}>
-                <Text style={styles.label}>
-                  👤 Customer
-                </Text>
+                  <Text style={styles.value}>
+                    {order.customer_id}
+                  </Text>
+                </View>
 
-                <Text style={styles.value}>
-                  {order.customer_name}
-                </Text>
-              </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.label}>
+                    🕒 Time
+                  </Text>
 
-              <View style={styles.infoRow}>
-                <Text style={styles.label}>
-                  🆔 Customer ID
-                </Text>
+                  <Text style={styles.value}>
+                    {new Date(
+                      order.created_at
+                    ).toLocaleString()}
+                  </Text>
+                </View>
 
-                <Text style={styles.value}>
-                  {order.customer_id}
-                </Text>
-              </View>
+                {order.status !== "DELIVERED" &&
+                  order.status !== "REJECTED" &&
+                  order.status !== "CANCELLED" && (
+                    <View style={styles.buttonRow}>
 
-              <View style={styles.infoRow}>
-                <Text style={styles.label}>
-                  🕒 Time
-                </Text>
+                      {order.status === "PENDING" && (
+                        <TouchableOpacity
+                          style={styles.acceptBtn}
+                          onPress={() => acceptOrder(order.id)}
+                        >
+                          <Text style={styles.buttonText}>
+                            Accept
+                          </Text>
+                        </TouchableOpacity>
+                      )}
 
-                <Text style={styles.value}>
-                  {new Date(
-                    order.created_at
-                  ).toLocaleString()}
-                </Text>
-              </View>
 
-              {order.status !== "DELIVERED" &&
-                order.status !== "REJECTED" && (
-                  <View style={styles.buttonRow}>
-                    {order.status === "PENDING" && (
+                      {order.status === "ACCEPTED" && (
+                        <TouchableOpacity
+                          style={styles.deliverBtn}
+                          onPress={() => deliverOrder(order.id)}
+                        >
+                          <Text style={styles.buttonText}>
+                            Deliver
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+
+
                       <TouchableOpacity
-                        style={styles.acceptBtn}
-                        onPress={() =>
-                          acceptOrder(order.id)
-                        }
+                        style={styles.rejectBtn}
+                        onPress={() => openReject(order.id)}
                       >
                         <Text style={styles.buttonText}>
-                          Accept
+                          Reject
                         </Text>
                       </TouchableOpacity>
-                    )}
 
-                    {order.status === "ACCEPTED" && (
-                      <TouchableOpacity
-                        style={styles.deliverBtn}
-                        onPress={() =>
-                          deliverOrder(order.id)
-                        }
-                      >
-                        <Text style={styles.buttonText}>
-                          Deliver
-                        </Text>
-                      </TouchableOpacity>
-                    )}
+                    </View>
+                  )}
 
-                    <TouchableOpacity
-                      style={styles.rejectBtn}
-                      onPress={() =>
-                        openReject(order.id)
-                      }
-                    >
-                      <Text style={styles.buttonText}>
-                        Reject
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
 
-              {(order.status === "DELIVERED" ||
-                order.status === "REJECTED") && (
+
+                {order.status === "DELIVERED" && (
                   <Text style={styles.completedText}>
-                    ✔ Order processing completed
+                    ✔ Order delivered successfully
                   </Text>
                 )}
-            </View>
-          );
-        })}
+
+
+                {order.status === "REJECTED" && (
+                  <Text style={styles.rejectedText}>
+                    ❌ Order rejected
+                  </Text>
+                )}
+
+
+                {order.status === "CANCELLED" && (
+                  <Text style={styles.cancelledText}>
+                    🚫 Order cancelled by customer
+                  </Text>
+                )}
+              </View>
+            );
+          })
+        )}
       </ScrollView>
 
       {/* ================= REJECT MODAL ================= */}
@@ -354,7 +576,7 @@ const onRefresh = async () => {
 
             <View style={styles.modalRow}>
 
-               <TouchableOpacity
+              <TouchableOpacity
                 style={styles.btn}
                 onPress={() => setRejectModal(false)}
               >
@@ -374,12 +596,12 @@ const onRefresh = async () => {
                 </Text>
               </TouchableOpacity>
 
-             
+
             </View>
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 const styles = StyleSheet.create({
@@ -480,121 +702,178 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   card: {
-  backgroundColor: "#101E2D",
-  marginHorizontal: 16,
-  marginVertical: 8,
-  padding: 18,
-  borderRadius: 18,
-},
+    backgroundColor: "#101E2D",
+    marginHorizontal: 16,
+    marginVertical: 8,
+    padding: 18,
+    borderRadius: 18,
+  },
 
-cardHeader: {
-  flexDirection: "row",
-  justifyContent: "space-between",
-  alignItems: "center",
-},
+  cardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
 
-orderId: {
-  color: "#FFFFFF",
-  fontSize: 20,
-  fontWeight: "900",
-},
+  orderId: {
+    color: "#FFFFFF",
+    fontSize: 20,
+    fontWeight: "900",
+  },
 
-divider: {
-  height: 1,
-  backgroundColor: "#22384F",
-  marginVertical: 15,
-},
+  divider: {
+    height: 1,
+    backgroundColor: "#22384F",
+    marginVertical: 15,
+  },
 
-infoRow: {
-  flexDirection: "row",
-  justifyContent: "space-between",
-  marginVertical: 6,
-},
+  infoRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginVertical: 6,
+  },
 
-label: {
-  color: "#90A4AE",
-  fontSize: 14,
-  fontWeight: "700",
-},
+  label: {
+    color: "#90A4AE",
+    fontSize: 14,
+    fontWeight: "700",
+  },
 
-value: {
-  color: "#FFFFFF",
-  fontSize: 14,
-  fontWeight: "800",
-  maxWidth: "60%",
-  textAlign: "right",
-},
+  value: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "800",
+    maxWidth: "60%",
+    textAlign: "right",
+  },
 
-statusBadge: {
-  paddingHorizontal: 12,
-  paddingVertical: 6,
-  borderRadius: 10,
-},
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  dateRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginHorizontal: 16,
+    marginBottom: 16,
+  },
 
-pending: {
-  backgroundColor: "#FB8C00",
-},
+  dayButton: {
+    backgroundColor: "#101E2D",
+    width: 45,
+    height: 45,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
 
-accepted: {
-  backgroundColor: "#1E88E5",
-},
+  dayButtonText: {
+    color: "#FFFFFF",
+    fontSize: 18,
+    fontWeight: "900",
+  },
 
-delivered: {
-  backgroundColor: "#43A047",
-},
+  dateButton: {
+    backgroundColor: "#101E2D",
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginHorizontal: 10,
+  },
 
-rejected: {
-  backgroundColor: "#E53935",
-},
+  dateText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+  },
 
-statusText: {
-  color: "#FFFFFF",
-  fontWeight: "800",
-  fontSize: 12,
-},
+  empty: {
+    color: "#90A4AE",
+    textAlign: "center",
+    marginTop: 50,
+    fontSize: 16,
+  },
+  pending: {
+    backgroundColor: "#FB8C00",
+  },
 
-buttonRow: {
-  flexDirection: "row",
-  justifyContent: "space-between",
-  marginTop: 20,
-},
+  accepted: {
+    backgroundColor: "#1E88E5",
+  },
 
-acceptBtn: {
-  flex: 1,
-  backgroundColor: "#1976D2",
-  padding: 12,
-  borderRadius: 12,
-  alignItems: "center",
-  marginRight: 8,
-},
+  delivered: {
+    backgroundColor: "#43A047",
+  },
 
-deliverBtn: {
-  flex: 1,
-  backgroundColor: "#2E7D32",
-  padding: 12,
-  borderRadius: 12,
-  alignItems: "center",
-  marginRight: 8,
-},
+  rejected: {
+    backgroundColor: "#E53935",
+  },
+  cancelled: {
+    backgroundColor: "#E53935",
+  },
 
-rejectBtn: {
-  flex: 1,
-  backgroundColor: "#D32F2F",
-  padding: 12,
-  borderRadius: 12,
-  alignItems: "center",
-},
-
-buttonText: {
-  color: "#FFFFFF",
-  fontWeight: "800",
-  fontSize: 15,
-},
-
-completedText: {
-  color: "#64B5F6",
+  statusText: {
+    color: "#FFFFFF",
+    fontWeight: "800",
+    fontSize: 12,
+  },
+rejectedText: {
+  color: "#FF5252",
   textAlign: "center",
   marginTop: 18,
-  fontWeight: "700",
+  fontWeight: "800",
 },
+
+
+cancelledText: {
+  color: "#FF9800",
+  textAlign: "center",
+  marginTop: 18,
+  fontWeight: "800",
+},
+  buttonRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 20,
+  },
+
+  acceptBtn: {
+    flex: 1,
+    backgroundColor: "#1976D2",
+    padding: 12,
+    borderRadius: 12,
+    alignItems: "center",
+    marginRight: 8,
+  },
+
+  deliverBtn: {
+    flex: 1,
+    backgroundColor: "#2E7D32",
+    padding: 12,
+    borderRadius: 12,
+    alignItems: "center",
+    marginRight: 8,
+  },
+
+  rejectBtn: {
+    flex: 1,
+    backgroundColor: "#D32F2F",
+    padding: 12,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+
+  buttonText: {
+    color: "#FFFFFF",
+    fontWeight: "800",
+    fontSize: 15,
+  },
+
+  completedText: {
+    color: "#64B5F6",
+    textAlign: "center",
+    marginTop: 18,
+    fontWeight: "700",
+  },
 });

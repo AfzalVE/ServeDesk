@@ -5,7 +5,7 @@ from app.models.support_ticket import SupportTicket
 from app.models.user import User
 from datetime import datetime, timedelta
 from sqlalchemy import and_, or_
-from app.websocket_manager import manager
+from app.websocket_manager import ticket_manager
 import asyncio
 
 
@@ -47,8 +47,9 @@ def raise_ticket(
 
     db.add(ticket)
     db.commit()
+    db.refresh(ticket)
     asyncio.create_task( 
-        manager.broadcast( 
+        ticket_manager.broadcast( 
             { 
                 "event": "ticket_created", 
                 "ticket": { 
@@ -63,7 +64,7 @@ def raise_ticket(
             }
         ) 
     )
-    db.refresh(ticket)
+
 
     return ticket
 
@@ -169,7 +170,7 @@ def accept_ticket(
     ticket.status = "ACCEPTED"
 
     db.commit()
-    asyncio.create_task( manager.broadcast( { "event": "ticket_accepted", "ticket_id": ticket.id } ) )
+    asyncio.create_task( ticket_manager.broadcast( { "event": "ticket_accepted", "ticket_id": ticket.id } ) )
     db.refresh(ticket)
 
     return ticket
@@ -215,7 +216,7 @@ def reject_ticket(
     ticket.status = "OPEN"
 
     db.commit()
-    asyncio.create_task( manager.broadcast( { "event": "ticket_rejected", "ticket_id": ticket.id } ) )
+    asyncio.create_task( ticket_manager.broadcast( { "event": "ticket_rejected", "ticket_id": ticket.id } ) )
     db.refresh(ticket)
 
     return ticket
@@ -243,7 +244,7 @@ def cancel_ticket(
     ticket.status = "CANCELLED"
 
     db.commit()
-    asyncio.create_task( manager.broadcast( { "event": "ticket_cancelled", "ticket_id": ticket.id } ) )
+    asyncio.create_task( ticket_manager.broadcast( { "event": "ticket_cancelled", "ticket_id": ticket.id } ) )
     db.refresh(ticket)
 
     return ticket

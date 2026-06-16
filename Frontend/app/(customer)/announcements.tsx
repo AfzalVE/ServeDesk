@@ -10,6 +10,7 @@ import {
   Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { API_URL } from "../../config/api";
 import { router } from "expo-router";
 import { colors } from "../../constants/theme";
@@ -17,7 +18,11 @@ import { colors } from "../../constants/theme";
 export default function AnnouncementsPage() {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [title, setTitle] = useState("");
+  const [message, setMessage] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   useEffect(() => {
     loadAnnouncements();
@@ -37,7 +42,39 @@ export default function AnnouncementsPage() {
       setLoading(false);
     }
   };
+  const formatDate = (date: Date) => {
+    return date.toISOString().split("T")[0];
+  };
 
+  const changeDay = (days: number) => {
+    const newDate = new Date(selectedDate);
+
+    newDate.setDate(
+      newDate.getDate() + days
+    );
+
+    setSelectedDate(newDate);
+  };
+
+  const onDateChange = (
+    event: any,
+    date?: Date
+  ) => {
+    setShowDatePicker(false);
+
+    if (date) {
+      setSelectedDate(date);
+    }
+  };
+
+  const filteredAnnouncements = [...data]
+    .filter(
+      (item) =>
+        formatDate(
+          new Date(item.created_at)
+        ) === formatDate(selectedDate)
+    )
+    .sort((a, b) => b.id - a.id);
   const onRefresh = async () => {
     setRefreshing(true);
     await loadAnnouncements();
@@ -59,9 +96,7 @@ export default function AnnouncementsPage() {
         paddingBottom: 100,
         flexGrow: 1,
       }}
-      data={[...data].sort(
-        (a, b) => b.id - a.id
-      )}
+      data={filteredAnnouncements}
       keyExtractor={(item) =>
         item.id.toString()
       }
@@ -82,19 +117,57 @@ export default function AnnouncementsPage() {
                 router.back()
               }
             >
-              <Text style={styles.back}>
-                Back
-              </Text>
+
             </TouchableOpacity>
           </View>
 
-        
+
+            <View style={styles.dateRow}>
+              <TouchableOpacity
+                style={styles.dayButton}
+                onPress={() => changeDay(-1)}
+              >
+                <Text style={styles.dayButtonText}>
+                  ◀
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.dateButton}
+                onPress={() =>
+                  setShowDatePicker(true)
+                }
+              >
+                <Text style={styles.dateText}>
+                  📅 {selectedDate.toDateString()}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.dayButton}
+                onPress={() => changeDay(1)}
+              >
+                <Text style={styles.dayButtonText}>
+                  ▶
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {showDatePicker && (
+              <DateTimePicker
+                value={selectedDate}
+                mode="date"
+                display="default"
+                onChange={onDateChange}
+              />
+            )}
+            
           <Text
             style={
               styles.sectionTitle
             }
           >
-            All Announcements
+            Recent Announcements
           </Text>
         </>
       }
@@ -275,6 +348,41 @@ const styles = StyleSheet.create({
   back: {
     color: "#2D8CFF",
     fontWeight: "700",
+  },
+  dateRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 20,
+  },
+
+  dayButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: "#101E2D",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  dayButtonText: {
+    color: "#FFF",
+    fontSize: 18,
+    fontWeight: "900",
+  },
+
+  dateButton: {
+    backgroundColor: "#101E2D",
+    paddingHorizontal: 16,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: "center",
+    marginHorizontal: 10,
+  },
+
+  dateText: {
+    color: "#FFF",
+    fontWeight: "800",
   },
   titleInput: {
     backgroundColor: "#16293D",

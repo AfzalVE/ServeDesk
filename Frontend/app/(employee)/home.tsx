@@ -1,5 +1,6 @@
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
+import { Vibration } from "react-native";
 import {
   ScrollView,
   StyleSheet,
@@ -63,71 +64,139 @@ export default function EmployeeDashboard() {
   const [rejectReason, setRejectReason] = useState("");
 
   const [actionLoading, setActionLoading] = useState(false);
+  const ticketSocket = useRef<WebSocket | null>(null);
+  const orderSocket = useRef<WebSocket | null>(null);
 
   // =====================
   // LOAD DATA
   // =====================
 
+  const ringPhone = () => {
+    // Vibrate immediately
+    Vibration.vibrate(1000);
+
+    // Vibrate every 2 seconds
+    const interval = setInterval(() => {
+      Vibration.vibrate(1000);
+    }, 2000);
+
+    // Stop after 1 minute
+    setTimeout(() => {
+      clearInterval(interval);
+      Vibration.cancel(); // stop any ongoing vibration
+    }, 60000);
+  };
   useEffect(() => {
     initialize();
+  }, []);
 
-    socket.current = new WebSocket(
-      API_URL.replace("http", "ws") + "/ws/tickets"
+  useEffect(() => {
+    if (!user?.id) return;
+
+    // =====================
+    // TICKET SOCKET
+    // =====================
+    ticketSocket.current = new WebSocket(
+      API_URL.replace(/^http/, "ws") + "/ws/tickets"
     );
 
-    socket.current.onopen = () => {
-      console.log("WebSocket Connected");
-      socket.current?.send(JSON.stringify({ type: "ping" }));
+    ticketSocket.current.onopen = () => {
+      console.log("✅ Ticket WS Connected");
     };
 
-    socket.current.onmessage = (event) => {
-      console.log("Received:", event.data);
-
+    ticketSocket.current.onmessage = (event) => {
       try {
         const parsed = JSON.parse(event.data);
 
-        if (parsed.event) {
-          fetchData();      // reload tickets
-          return;
+        console.log("🎫 Ticket WS:", parsed);
+
+        if (
+          parsed.event === "ticket_created" &&
+          parsed.ticket?.requested_employee_id === user.id
+        ) {
+          ringPhone();
         }
 
-        if (parsed.id) {
-          setTickets((prev) => {
-            const exists = prev.find(
-              (t) => t.id === parsed.id
-            );
+        fetchData();
 
-            if (exists) {
-              return prev.map((t) =>
-                t.id === parsed.id ? parsed : t
-              );
-            }
-
-            return [parsed, ...prev];
-          });
-        }
-      } catch (e) {
-        console.log(e);
+      } catch (err) {
+        console.log("Ticket WS Parse Error:", err);
       }
     };
-    socket.current.onerror = (error) => {
-      console.log(
-        "WebSocket Error:",
-        error
-      );
+
+    ticketSocket.current.onerror = (error) => {
+      console.log("Ticket WS Error:", error);
     };
 
-    socket.current.onclose = () => {
-      console.log(
-        "WebSocket Closed"
-      );
+    ticketSocket.current.onclose = () => {
+      console.log("Ticket WS Closed");
     };
 
+
+    // =====================
+    // ORDER SOCKET
+    // =====================
+    orderSocket.current = new WebSocket(
+      API_URL.replace(/^http/, "ws") + "/ws/orders"
+
+    );
+    console.log(API_URL.replace(/^http/, "ws") + "/ws/orders")
+    orderSocket.current.onopen = () => {
+      console.log("✅ Order WS Connected Employee");
+    };
+
+    orderSocket.current.onmessage = (event) => {
+      try {
+        const parsed = JSON.parse(event.data);
+
+        console.log("📦 Order WS:", parsed);
+
+        if (parsed.type === "order_created") {
+
+          Vibration.vibrate(500);
+
+          Alert.alert(
+            "New Order",
+            `Order #${parsed.order?.id} received`
+          );
+        }
+
+        fetchData();
+
+      } catch (err) {
+        console.log("Order WS Parse Error:", err);
+      }
+    };
+
+
+    orderSocket.current.onerror = (error) => {
+      console.log("Order WS Error:", error);
+    };
+
+
+    orderSocket.current.onclose = () => {
+      console.log("Employee Order WS Closed");
+    };
+
+
+    // =====================
+    // CLEANUP
+    // =====================
     return () => {
-      socket.current?.close();
-    };
-  }, [user?.id]);
 
+      if (ticketSocket.current) {
+        ticketSocket.current.close();
+        ticketSocket.current = null;
+      }
+
+      if (orderSocket.current) {
+        orderSocket.current.close();
+        orderSocket.current = null;
+      }
+
+    };
+
+  }, [user?.id]);
   const initialize = async () => {
     await loadUser();
     await fetchData();
@@ -231,7 +300,7 @@ export default function EmployeeDashboard() {
       setLoading(true);
 
       const [orderRes, ticketRes] = await Promise.all([
-        fetch(`${API_URL}/orders`),
+        fetch(`${API_URL}/orders/pending/today`),
         fetch(`${API_URL}/tickets/active`),
       ]);
 
@@ -298,7 +367,6 @@ export default function EmployeeDashboard() {
           Monitor orders and support requests
         </Text>
       </View>
-
       {/* STATS */}
       <View style={styles.statsRow}>
         <View style={styles.statCard}>

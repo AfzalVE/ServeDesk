@@ -11,23 +11,41 @@ import {
   TouchableOpacity,
   Alert,
   ScrollView,
+  RefreshControl,
 } from "react-native";
-import { RefreshControl } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { router } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { router } from "expo-router";
 
 import { colors } from "../../constants/theme";
 
+import {
+  getCurrentUser,
+  logout as logoutUser,
+} from "@/lib/auth";
+
+type User = {
+  id: number;
+  name: string;
+  email: string;
+  employee_id: string | null;
+  user_type: string;
+  is_active: boolean;
+  last_login: string | null;
+  created_at: string;
+};
+
 export default function Profile() {
-  const [refreshing, setRefreshing] = useState(false);
   const insets = useSafeAreaInsets();
+
+  const [user, setUser] =
+    useState<User | null>(null);
+
   const [loading, setLoading] =
     useState(true);
 
-  const [user, setUser] =
-    useState<any>(null);
+  const [refreshing, setRefreshing] =
+    useState(false);
 
   useEffect(() => {
     loadUser();
@@ -35,23 +53,40 @@ export default function Profile() {
 
   const loadUser = async () => {
     try {
-      const data =
-        await AsyncStorage.getItem(
-          "user"
-        );
+      const currentUser =
+        await getCurrentUser();
 
-      if (data) {
-        setUser(JSON.parse(data));
+      if (!currentUser) {
+        router.replace(
+          "/(auth)/sign-in"
+        );
+        return;
       }
+      setUser(currentUser);
+    } catch (error) {
+      console.log(error);
+
+      router.replace(
+        "/(auth)/sign-in"
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  const logout = () => {
+  const onRefresh = async () => {
+    try {
+      setRefreshing(true);
+      await loadUser();
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const handleLogout = () => {
     Alert.alert(
       "Logout",
-      "Are you sure?",
+      "Are you sure you want to logout?",
       [
         {
           text: "Cancel",
@@ -61,24 +96,17 @@ export default function Profile() {
           text: "Logout",
           style: "destructive",
           onPress: async () => {
-            await AsyncStorage.removeItem(
-              "user"
-            );
+            await logoutUser();
 
-            router.replace("/");
+            router.replace(
+              "/(auth)/sign-in"
+            );
           },
         },
       ]
     );
   };
-  const onRefresh = async () => {
-    try {
-      setRefreshing(true);
-      await loadUser();
-    } finally {
-      setRefreshing(false);
-    }
-  };
+
   if (loading) {
     return (
       <View style={styles.loader}>
@@ -95,7 +123,8 @@ export default function Profile() {
       style={styles.container}
       contentContainerStyle={{
         padding: 15,
-        paddingBottom: insets.bottom + 120,
+        paddingBottom:
+          insets.bottom + 120,
         flexGrow: 1,
       }}
       refreshControl={
@@ -106,14 +135,16 @@ export default function Profile() {
         />
       }
     >
-      {/* Header */}
+      {/* Profile Header */}
 
       <View style={styles.profileCard}>
         <View style={styles.avatar}>
-          <Text style={styles.avatarText}>
+          <Text
+            style={styles.avatarText}
+          >
             {user?.name
               ?.charAt(0)
-              ?.toUpperCase()}
+              ?.toUpperCase() || "U"}
           </Text>
         </View>
 
@@ -122,16 +153,20 @@ export default function Profile() {
         </Text>
 
         <View style={styles.roleBadge}>
-          <Text style={styles.roleText}>
+          <Text
+            style={styles.roleText}
+          >
             {user?.user_type}
           </Text>
         </View>
       </View>
 
-      {/* Details */}
+      {/* Account Info */}
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>
+        <Text
+          style={styles.sectionTitle}
+        >
           ACCOUNT INFORMATION
         </Text>
 
@@ -139,6 +174,7 @@ export default function Profile() {
           <Text style={styles.label}>
             Employee ID
           </Text>
+
           <Text style={styles.value}>
             {user?.employee_id ||
               "Not Assigned"}
@@ -149,6 +185,7 @@ export default function Profile() {
           <Text style={styles.label}>
             Full Name
           </Text>
+
           <Text style={styles.value}>
             {user?.name}
           </Text>
@@ -158,6 +195,7 @@ export default function Profile() {
           <Text style={styles.label}>
             Email
           </Text>
+
           <Text style={styles.value}>
             {user?.email}
           </Text>
@@ -167,6 +205,7 @@ export default function Profile() {
           <Text style={styles.label}>
             User Type
           </Text>
+
           <Text style={styles.value}>
             {user?.user_type}
           </Text>
@@ -174,13 +213,40 @@ export default function Profile() {
 
         <View style={styles.infoCard}>
           <Text style={styles.label}>
+            Status
+          </Text>
+
+          <Text style={styles.value}>
+            {user?.is_active
+              ? "Active"
+              : "Offline"}
+          </Text>
+        </View>
+
+        <View style={styles.infoCard}>
+          <Text style={styles.label}>
+            Last Login
+          </Text>
+
+          <Text style={styles.value}>
+            {user?.last_login
+              ? new Date(
+                  user.last_login
+                ).toLocaleString()
+              : "-"}
+          </Text>
+        </View>
+
+        <View style={styles.infoCard}>
+          <Text style={styles.label}>
             Member Since
           </Text>
+
           <Text style={styles.value}>
             {user?.created_at
               ? new Date(
-                user.created_at
-              ).toLocaleDateString()
+                  user.created_at
+                ).toLocaleDateString()
               : "-"}
           </Text>
         </View>
@@ -211,7 +277,7 @@ export default function Profile() {
 
         <TouchableOpacity
           style={styles.logoutButton}
-          onPress={logout}
+          onPress={handleLogout}
         >
           <Text
             style={styles.logoutText}
@@ -223,13 +289,14 @@ export default function Profile() {
     </ScrollView>
   );
 }
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor:
       colors.background,
-
   },
+
   loader: {
     flex: 1,
     justifyContent: "center",

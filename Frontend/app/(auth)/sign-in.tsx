@@ -18,30 +18,70 @@ export default function SignIn() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const handleSignin = async () => {
-    if (!email || !password) {
-      Alert.alert("Error", "Please fill all fields");
+    const userEmail =
+      email.trim().toLowerCase();
+
+    if (!userEmail || !password) {
+      Alert.alert(
+        "Error",
+        "Please fill all fields"
+      );
       return;
     }
 
-    setLoading(true);
+    try {
+      setLoading(true);
 
-    const result = await signin(email, password);
+      const result = await signin(
+        userEmail,
+        password
+      );
 
-    setLoading(false);
+      if (!result.ok) {
+        Alert.alert(
+          "Login Failed",
+          result.error
+        );
+        return;
+      }
 
-    if (!result.ok) {
-      Alert.alert("Error", result.error);
-      return;
-    }
+      const userType =
+        result.user.user_type;
 
-    const type = result.user.user_type;
+      switch (userType) {
+        case "CUSTOMER":
+          router.replace(
+            "/(customer)/home"
+          );
+          break;
 
-    if (type === "CUSTOMER") {
-      router.replace("/(customer)/home");
-    } else if (type === "EMPLOYEE") {
-      router.replace("/(employee)/home");
-    } else {
-      router.replace("/(admin)/dashboard");
+        case "EMPLOYEE":
+          router.replace(
+            "/(employee)/home"
+          );
+          break;
+
+        case "ADMIN":
+          router.replace(
+            "/(admin)/dashboard"
+          );
+          break;
+
+        default:
+          Alert.alert(
+            "Error",
+            `Unknown user type: ${userType}`
+          );
+      }
+    } catch (error) {
+      console.log(error);
+
+      Alert.alert(
+        "Error",
+        "Something went wrong"
+      );
+    } finally {
+      setLoading(false);
     }
   };
   return (
@@ -77,7 +117,11 @@ export default function SignIn() {
         />
 
         <TouchableOpacity
-          style={styles.button}
+          style={[
+            styles.button,
+            loading && { opacity: 0.7 },
+          ]}
+          disabled={loading}
           onPress={handleSignin}
         >
           <Text style={styles.buttonText}>

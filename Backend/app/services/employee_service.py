@@ -22,6 +22,17 @@ def get_employee_by_id(
         User.id == employee_id
     ).first()
 
+def get_active_employee(db: Session):
+    print("Here")
+
+    return (
+        db.query(User)
+        .filter(
+            User.user_type == "EMPLOYEE",
+            User.is_active == True
+        )
+        .all()
+    )
 
 def get_all_customers(
     db: Session

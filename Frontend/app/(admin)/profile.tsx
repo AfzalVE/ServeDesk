@@ -1,343 +1,406 @@
 import React, {
-    useEffect,
-    useState,
+  useEffect,
+  useState,
 } from "react";
 
 import {
-    View,
-    Text,
-    StyleSheet,
-    ActivityIndicator,
-    TouchableOpacity,
-    Alert,
-    ScrollView,
+  View,
+  Text,
+  StyleSheet,
+  ActivityIndicator,
+  TouchableOpacity,
+  Alert,
+  ScrollView,
+  RefreshControl,
 } from "react-native";
-import { RefreshControl } from "react-native";
 
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
 import { router } from "expo-router";
 
 import { colors } from "../../constants/theme";
 
+import {
+  getCurrentUser,
+  logout as logoutUser,
+} from "@/lib/auth";
+
+type User = {
+  id: number;
+  name: string;
+  email: string;
+  employee_id: string | null;
+  user_type: string;
+  is_active: boolean;
+  last_login: string | null;
+  created_at: string;
+};
+
 export default function Profile() {
-    const [refreshing, setRefreshing] = useState(false);
-    const insets = useSafeAreaInsets();
-    const [loading, setLoading] =
-        useState(true);
+  const insets = useSafeAreaInsets();
 
-    const [user, setUser] =
-        useState<any>(null);
+  const [user, setUser] =
+    useState<User | null>(null);
 
-    useEffect(() => {
-        loadUser();
-    }, []);
+  const [loading, setLoading] =
+    useState(true);
 
-    const loadUser = async () => {
-        try {
-            const data =
-                await AsyncStorage.getItem(
-                    "user"
-                );
+  const [refreshing, setRefreshing] =
+    useState(false);
 
-            if (data) {
-                setUser(JSON.parse(data));
-            }
-        } finally {
-            setLoading(false);
-        }
-    };
+  useEffect(() => {
+    loadUser();
+  }, []);
 
-    const logout = () => {
-        Alert.alert(
-            "Logout",
-            "Are you sure?",
-            [
-                {
-                    text: "Cancel",
-                    style: "cancel",
-                },
-                {
-                    text: "Logout",
-                    style: "destructive",
-                    onPress: async () => {
-                        await AsyncStorage.removeItem(
-                            "user"
-                        );
+  const loadUser = async () => {
+    try {
+      const currentUser =
+        await getCurrentUser();
 
-                        router.replace("/");
-                    },
-                },
-            ]
+      if (!currentUser) {
+        router.replace(
+          "/(auth)/sign-in"
         );
-    };
-    const onRefresh = async () => {
-        try {
-            setRefreshing(true);
-            await loadUser();
-        } finally {
-            setRefreshing(false);
-        }
-    };
-    if (loading) {
-        return (
-            <View style={styles.loader}>
-                <ActivityIndicator
-                    size="large"
-                    color="#2D8CFF"
-                />
-            </View>
-        );
+        return;
+      }
+      setUser(currentUser);
+    } catch (error) {
+      console.log(error);
+
+      router.replace(
+        "/(auth)/sign-in"
+      );
+    } finally {
+      setLoading(false);
     }
+  };
 
-    return (
-        <ScrollView
-            style={styles.container}
-            contentContainerStyle={{
-                padding: 15,
-                paddingBottom: insets.bottom + 120,
-                flexGrow: 1,
-            }}
-            refreshControl={
-                <RefreshControl
-                    refreshing={refreshing}
-                    onRefresh={onRefresh}
-                    tintColor="#2D8CFF"
-                />
-            }
-            showsVerticalScrollIndicator={false}
-        >
-            {/* Header */}
+  const onRefresh = async () => {
+    try {
+      setRefreshing(true);
+      await loadUser();
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
-            <View style={styles.profileCard}>
-                <View style={styles.avatar}>
-                    <Text style={styles.avatarText}>
-                        {user?.name
-                            ?.charAt(0)
-                            ?.toUpperCase()}
-                    </Text>
-                </View>
+  const handleLogout = () => {
+    Alert.alert(
+      "Logout",
+      "Are you sure you want to logout?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Logout",
+          style: "destructive",
+          onPress: async () => {
+            await logoutUser();
 
-                <Text style={styles.name}>
-                    {user?.name}
-                </Text>
-
-                <View style={styles.roleBadge}>
-                    <Text style={styles.roleText}>
-                        {user?.user_type}
-                    </Text>
-                </View>
-            </View>
-
-            {/* Details */}
-
-            <View style={styles.section}>
-                <Text style={styles.sectionTitle}>
-                    ACCOUNT INFORMATION
-                </Text>
-
-                <View style={styles.infoCard}>
-                    <Text style={styles.label}>
-                        Employee ID
-                    </Text>
-                    <Text style={styles.value}>
-                        {user?.employee_id ||
-                            "Not Assigned"}
-                    </Text>
-                </View>
-
-                <View style={styles.infoCard}>
-                    <Text style={styles.label}>
-                        Full Name
-                    </Text>
-                    <Text style={styles.value}>
-                        {user?.name}
-                    </Text>
-                </View>
-
-                <View style={styles.infoCard}>
-                    <Text style={styles.label}>
-                        Email
-                    </Text>
-                    <Text style={styles.value}>
-                        {user?.email}
-                    </Text>
-                </View>
-
-                <View style={styles.infoCard}>
-                    <Text style={styles.label}>
-                        User Type
-                    </Text>
-                    <Text style={styles.value}>
-                        {user?.user_type}
-                    </Text>
-                </View>
-
-                <View style={styles.infoCard}>
-                    <Text style={styles.label}>
-                        Member Since
-                    </Text>
-                    <Text style={styles.value}>
-                        {user?.created_at
-                            ? new Date(
-                                user.created_at
-                            ).toLocaleDateString()
-                            : "-"}
-                    </Text>
-                </View>
-            </View>
-
-            {/* Actions */}
-
-            <View style={styles.section}>
-                <TouchableOpacity
-                    style={styles.actionButton}
-                >
-                    <Text
-                        style={styles.actionText}
-                    >
-                        ✏️ Edit Profile
-                    </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                    style={styles.actionButton}
-                >
-                    <Text
-                        style={styles.actionText}
-                    >
-                        🔒 Change Password
-                    </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                    style={styles.logoutButton}
-                    onPress={logout}
-                >
-                    <Text
-                        style={styles.logoutText}
-                    >
-                        🚪 Logout
-                    </Text>
-                </TouchableOpacity>
-            </View>
-        </ScrollView>
+            router.replace(
+              "/(auth)/sign-in"
+            );
+          },
+        },
+      ]
     );
-}
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor:
-            colors.background,
+  };
 
-    },
+  if (loading) {
+    return (
+      <View style={styles.loader}>
+        <ActivityIndicator
+          size="large"
+          color="#2D8CFF"
+        />
+      </View>
+    );
+  }
 
-
-    loader: {
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-        backgroundColor:
-            colors.background,
-    },
-
-    profileCard: {
-        backgroundColor: "#101E2D",
-        borderRadius: 22,
-        padding: 25,
-        alignItems: "center",
-        marginBottom: 25,
-    },
-
-    avatar: {
-        width: 90,
-        height: 90,
-        borderRadius: 45,
-        backgroundColor: "#2D8CFF",
-        justifyContent: "center",
-        alignItems: "center",
-    },
-
-    avatarText: {
-        color: "#FFF",
-        fontSize: 40,
-        fontWeight: "900",
-    },
-
-    name: {
-        color: "#FFF",
-        fontSize: 24,
-        fontWeight: "900",
-        marginTop: 15,
-    },
-
-    roleBadge: {
-        marginTop: 12,
-        backgroundColor: "#163A63",
-        paddingHorizontal: 18,
-        paddingVertical: 8,
-        borderRadius: 20,
-    },
-
-    roleText: {
-        color: "#2D8CFF",
-        fontWeight: "900",
-    },
-
-    section: {
-        marginBottom: 20,
-    },
-
-    sectionTitle: {
-        color: "#7E96AD",
-        fontWeight: "900",
-        marginBottom: 12,
-        letterSpacing: 1,
-    },
-
-    infoCard: {
-        backgroundColor: "#101E2D",
-        borderRadius: 14,
+  return (
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={{
         padding: 15,
-        marginBottom: 10,
-    },
+        paddingBottom:
+          insets.bottom + 120,
+        flexGrow: 1,
+      }}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor="#2D8CFF"
+        />
+      }
+    >
+      {/* Profile Header */}
 
-    label: {
-        color: "#7E96AD",
-        fontSize: 13,
-    },
+      <View style={styles.profileCard}>
+        <View style={styles.avatar}>
+          <Text
+            style={styles.avatarText}
+          >
+            {user?.name
+              ?.charAt(0)
+              ?.toUpperCase() || "U"}
+          </Text>
+        </View>
 
-    value: {
-        color: "#FFF",
-        fontWeight: "800",
-        fontSize: 16,
-        marginTop: 4,
-    },
+        <Text style={styles.name}>
+          {user?.name}
+        </Text>
 
-    actionButton: {
-        backgroundColor: "#101E2D",
-        padding: 16,
-        borderRadius: 14,
-        marginBottom: 10,
-    },
+        <View style={styles.roleBadge}>
+          <Text
+            style={styles.roleText}
+          >
+            {user?.user_type}
+          </Text>
+        </View>
+      </View>
 
-    actionText: {
-        color: "#FFF",
-        fontWeight: "800",
-        textAlign: "center",
-    },
+      {/* Account Info */}
 
-    logoutButton: {
-        backgroundColor: "#B71C1C",
-        padding: 16,
-        borderRadius: 14,
-        marginTop: 10,
-    },
+      <View style={styles.section}>
+        <Text
+          style={styles.sectionTitle}
+        >
+          ACCOUNT INFORMATION
+        </Text>
 
-    logoutText: {
-        color: "#FFF",
-        fontWeight: "900",
-        textAlign: "center",
-    },
+        <View style={styles.infoCard}>
+          <Text style={styles.label}>
+            Employee ID
+          </Text>
+
+          <Text style={styles.value}>
+            {user?.employee_id ||
+              "Not Assigned"}
+          </Text>
+        </View>
+
+        <View style={styles.infoCard}>
+          <Text style={styles.label}>
+            Full Name
+          </Text>
+
+          <Text style={styles.value}>
+            {user?.name}
+          </Text>
+        </View>
+
+        <View style={styles.infoCard}>
+          <Text style={styles.label}>
+            Email
+          </Text>
+
+          <Text style={styles.value}>
+            {user?.email}
+          </Text>
+        </View>
+
+        <View style={styles.infoCard}>
+          <Text style={styles.label}>
+            User Type
+          </Text>
+
+          <Text style={styles.value}>
+            {user?.user_type}
+          </Text>
+        </View>
+
+        <View style={styles.infoCard}>
+          <Text style={styles.label}>
+            Status
+          </Text>
+
+          <Text style={styles.value}>
+            {user?.is_active
+              ? "Active"
+              : "Offline"}
+          </Text>
+        </View>
+
+        <View style={styles.infoCard}>
+          <Text style={styles.label}>
+            Last Login
+          </Text>
+
+          <Text style={styles.value}>
+            {user?.last_login
+              ? new Date(
+                  user.last_login
+                ).toLocaleString()
+              : "-"}
+          </Text>
+        </View>
+
+        <View style={styles.infoCard}>
+          <Text style={styles.label}>
+            Member Since
+          </Text>
+
+          <Text style={styles.value}>
+            {user?.created_at
+              ? new Date(
+                  user.created_at
+                ).toLocaleDateString()
+              : "-"}
+          </Text>
+        </View>
+      </View>
+
+      {/* Actions */}
+
+      <View style={styles.section}>
+        <TouchableOpacity
+          style={styles.actionButton}
+        >
+          <Text
+            style={styles.actionText}
+          >
+            ✏️ Edit Profile
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionButton}
+        >
+          <Text
+            style={styles.actionText}
+          >
+            🔒 Change Password
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.logoutButton}
+          onPress={handleLogout}
+        >
+          <Text
+            style={styles.logoutText}
+          >
+            🚪 Logout
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor:
+      colors.background,
+  },
+
+  loader: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor:
+      colors.background,
+  },
+
+  profileCard: {
+    backgroundColor: "#101E2D",
+    borderRadius: 22,
+    padding: 25,
+    alignItems: "center",
+    marginBottom: 25,
+  },
+
+  avatar: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: "#2D8CFF",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  avatarText: {
+    color: "#FFF",
+    fontSize: 40,
+    fontWeight: "900",
+  },
+
+  name: {
+    color: "#FFF",
+    fontSize: 24,
+    fontWeight: "900",
+    marginTop: 15,
+  },
+
+  roleBadge: {
+    marginTop: 12,
+    backgroundColor: "#163A63",
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+
+  roleText: {
+    color: "#2D8CFF",
+    fontWeight: "900",
+  },
+
+  section: {
+    marginBottom: 20,
+  },
+
+  sectionTitle: {
+    color: "#7E96AD",
+    fontWeight: "900",
+    marginBottom: 12,
+    letterSpacing: 1,
+  },
+
+  infoCard: {
+    backgroundColor: "#101E2D",
+    borderRadius: 14,
+    padding: 15,
+    marginBottom: 10,
+  },
+
+  label: {
+    color: "#7E96AD",
+    fontSize: 13,
+  },
+
+  value: {
+    color: "#FFF",
+    fontWeight: "800",
+    fontSize: 16,
+    marginTop: 4,
+  },
+
+  actionButton: {
+    backgroundColor: "#101E2D",
+    padding: 16,
+    borderRadius: 14,
+    marginBottom: 10,
+  },
+
+  actionText: {
+    color: "#FFF",
+    fontWeight: "800",
+    textAlign: "center",
+  },
+
+  logoutButton: {
+    backgroundColor: "#B71C1C",
+    padding: 16,
+    borderRadius: 14,
+    marginTop: 10,
+  },
+
+  logoutText: {
+    color: "#FFF",
+    fontWeight: "900",
+    textAlign: "center",
+  },
 });

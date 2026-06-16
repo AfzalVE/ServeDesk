@@ -5,12 +5,15 @@ from sqlalchemy.orm import Session
 from app.models.order import Order
 from app.models.product import Product   # IMPORTANT ADD
 from app.models.user import User       # IMPORTANT ADD
+from app.websocket_manager import order_manager
+import asyncio
+from datetime import date
 
 
 # =========================
 # CREATE ORDER
 # =========================
-def create_order(
+async def create_order(
     db: Session,
     customer_id: int,
     product_id: int = None,
@@ -32,7 +35,19 @@ def create_order(
     db.commit()
     db.refresh(order)
 
-    return enrich_order(db, order)
+    enriched = enrich_order(db, order)
+
+    print(
+        "ORDER SOCKET COUNT:",
+        len(order_manager.active_connections)
+    )
+
+    await order_manager.broadcast({
+        "type": "order_created",
+        "order": enriched
+    })
+
+    return enriched
 
 
 # =========================
@@ -71,8 +86,29 @@ def get_all_orders(
         enrich_order(db, order)
         for order in orders
     ]
+# =========================
+# GET CURRENT DATE & PENDING ORDERS
+# =========================
+def get_current_date_pending_orders(
+    db: Session,
+    order_date: str = None
+):
+    orders = (
+        db.query(Order)
+        .filter(
+            Order.status == "PENDING",
+            func.date(Order.created_at) == date.today()
+        )
+        .order_by(
+            Order.created_at.desc()
+        )
+        .all()
+    )
 
-
+    return [
+        enrich_order(db, order)
+        for order in orders
+    ]
 # =========================
 # GET CUSTOMER ORDERS
 # =========================
@@ -87,7 +123,7 @@ def get_customer_orders(db: Session, customer_id: int):
 # =========================
 # ASSIGN EMPLOYEE
 # =========================
-def assign_employee(db: Session, order_id: int, employee_id: int):
+async def assign_employee(db: Session, order_id: int, employee_id: int):
 
     order = db.query(Order).filter(Order.id == order_id).first()
 
@@ -100,13 +136,21 @@ def assign_employee(db: Session, order_id: int, employee_id: int):
     db.commit()
     db.refresh(order)
 
-    return enrich_order(db, order)
+    enriched = enrich_order(db, order)
+
+    await order_manager.broadcast({
+            "type": "order_assigned",
+            "order": enriched
+        })
+    
+
+    return enriched
 
 
 # =========================
 # UPDATE STATUS
 # =========================
-def update_order_status(
+async def update_order_status(
     db: Session,
     order_id: int,
     status: str,
@@ -129,7 +173,15 @@ def update_order_status(
     db.commit()
     db.refresh(order)
 
-    return order
+    enriched = enrich_order(db, order)
+
+    await order_manager.broadcast({
+            "type": "order_update",
+            "order": enriched
+        })
+    
+
+    return enriched
 
 
 # =========================
@@ -172,5 +224,5 @@ def enrich_order(db: Session, order: Order):
         "reject_reason":order.reject_reason,
         "status": order.status,
         "display_name": display_name,
-        "created_at": order.created_at,
+        "created_at":order.created_at.isoformat() if order.created_at else None,
     }

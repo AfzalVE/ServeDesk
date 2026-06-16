@@ -22,7 +22,6 @@ export default function Home() {
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
   const [user, setUser] = useState<any>(null);
-  const socket = useRef<WebSocket | null>(null);
   const [employees, setEmployees] = useState<any[]>([]);
   const [showEmployees, setShowEmployees] = useState(false);
   const [activeTicket, setActiveTicket] = useState<any>(null);
@@ -33,6 +32,8 @@ export default function Home() {
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [ticketId, setTicketId] = useState<number | null>(null);
   const [activeTickets, setActiveTickets] = useState<any[]>([]);
+  const ticketSocket = useRef<WebSocket | null>(null);
+  const orderSocket = useRef<WebSocket | null>(null);
 
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,15 +57,15 @@ export default function Home() {
     if (!user?.id) return;
 
     // Create websocket connection
-    socket.current = new WebSocket(
+    ticketSocket.current = new WebSocket(
       API_URL.replace("http", "ws") + "/ws/tickets"
     );
 
-    socket.current.onopen = () => {
+    ticketSocket.current.onopen = () => {
       console.log("✅ WebSocket Connected");
     };
 
-    socket.current.onmessage = (event) => {
+    ticketSocket.current.onmessage = (event) => {
       console.log("📩 WS Message:", event.data);
 
       // Refresh dashboard data whenever backend sends an event
@@ -72,18 +73,65 @@ export default function Home() {
       fetchActiveTicket(user.id);
     };
 
-    socket.current.onerror = (error) => {
+    ticketSocket.current.onerror = (error) => {
       console.log("❌ WebSocket Error:", error);
     };
 
-    socket.current.onclose = () => {
+    ticketSocket.current.onclose = () => {
       console.log("🔌 WebSocket Closed");
     };
 
     return () => {
-      socket.current?.close();
+      ticketSocket.current?.close();
     };
   }, [user?.id]);
+
+  useEffect(() => {
+  if (!user?.id) return;
+
+  orderSocket.current = new WebSocket(
+    API_URL.replace("http", "ws") + "/ws/orders"
+  );
+
+  orderSocket.current.onopen = () => {
+    console.log("✅ Orders WS Connected");
+  };
+
+  orderSocket.current.onmessage = async (event) => {
+    console.log("📦 Order WS:", event.data);
+
+    try {
+      const data = JSON.parse(event.data);
+
+      if (
+        data.event === "order_created" ||
+        data.event === "order_updated" ||
+        data.event === "order_assigned"
+      ) {
+        // refresh customer data
+        await loadTodayAnnouncements();
+
+        if (user?.id) {
+          await fetchActiveTicket(user.id);
+        }
+      }
+    } catch (err) {
+      console.log(err);
+    }
+  };
+
+  orderSocket.current.onerror = (error) => {
+    console.log("❌ Orders WS Error:", error);
+  };
+
+  orderSocket.current.onclose = () => {
+    console.log("🔌 Orders WS Closed");
+  };
+
+  return () => {
+    orderSocket.current?.close();
+  };
+}, [user?.id]);
   const loadAll = async () => {
     try {
       setLoading(true);
@@ -167,7 +215,7 @@ export default function Home() {
     }
 
     try {
-      const res = await fetch(`${API_URL}/employees`);
+      const res = await fetch(`${API_URL}/active-employees`);
 
       if (!res.ok) {
         throw new Error();
@@ -230,6 +278,7 @@ export default function Home() {
   // =========================
   const raiseTicket = async (emp: any) => {
     try {
+      console.log(emp);
       setSelectedEmployee(emp);
 
       const res = await fetch(`${API_URL}/tickets`, {

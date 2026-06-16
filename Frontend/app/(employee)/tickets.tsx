@@ -5,10 +5,12 @@ import {
   StyleSheet,
   Text,
   View,
- FlatList ,
- RefreshControl ,
+  FlatList,
+  RefreshControl,
+  TouchableOpacity
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { API_URL } from "../../config/api";
 import { colors } from "../../constants/theme";
 
@@ -39,6 +41,8 @@ export default function TicketsPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   useEffect(() => {
     fetchTickets();
@@ -53,6 +57,33 @@ export default function TicketsPage() {
       setLoading(false);
     }
   };
+  const formatDate = (date: Date) => {
+    return date.toISOString().split("T")[0];
+  };
+
+  const changeDay = (days: number) => {
+    const newDate = new Date(selectedDate);
+    newDate.setDate(newDate.getDate() + days);
+    setSelectedDate(newDate);
+  };
+
+  const onDateChange = (
+    event: any,
+    date?: Date
+  ) => {
+    setShowDatePicker(false);
+
+    if (date) {
+      setSelectedDate(date);
+    }
+  };
+  const filteredTickets = tickets.filter((ticket) => {
+    return (
+      formatDate(
+        new Date(ticket.created_at)
+      ) === formatDate(selectedDate)
+    );
+  });
   const onRefresh = async () => {
     setRefreshing(true);
 
@@ -70,103 +101,171 @@ export default function TicketsPage() {
 
   return (
 
-  <FlatList
-    data={tickets}
-    keyExtractor={(item) => item.id.toString()}
-    style={styles.container}
-    refreshControl={
-      <RefreshControl
-        refreshing={refreshing}
-        onRefresh={onRefresh}
-        tintColor="#2D8CFF"
-      />
-    }
-    ListHeaderComponent={
-      <Text style={styles.title}>🎫 Support Tickets</Text>
-    }
-    ListEmptyComponent={
-      <View style={styles.emptyCard}>
-        <Text style={styles.emptyText}>
-          No support tickets found
-        </Text>
-      </View>
-    }
-    renderItem={({ item: t }) => (
-      <View style={styles.card}>
-        <View style={styles.headerRow}>
-          <Text style={styles.ticketId}>
-            Ticket #{t.id}
+    <FlatList
+      data={filteredTickets}
+      keyExtractor={(item) => item.id.toString()}
+      style={styles.container}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor="#2D8CFF"
+        />
+      }
+      ListHeaderComponent={
+        <>
+          <Text style={styles.title}>
+            🎫 Support Tickets
           </Text>
 
-          <View
-            style={[
-              styles.statusBadge,
-              t.status === "OPEN" && styles.openBadge,
-              t.status === "ACCEPTED" && styles.acceptedBadge,
-              t.status === "REJECTED" && styles.rejectedBadge,
-              t.status === "CANCELLED" && styles.cancelledBadge,
-              t.status === "CLOSED" && styles.closedBadge,
-            ]}
-          >
-            <Text style={styles.statusText}>{t.status}</Text>
+          <View style={styles.dateRow}>
+            <TouchableOpacity
+              style={styles.dayButton}
+              onPress={() => changeDay(-1)}
+            >
+              <Text style={styles.dayButtonText}>
+                ◀
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.dateButton}
+              onPress={() =>
+                setShowDatePicker(true)
+              }
+            >
+              <Text style={styles.dateText}>
+                📅 {selectedDate.toDateString()}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.dayButton}
+              onPress={() => changeDay(1)}
+            >
+              <Text style={styles.dayButtonText}>
+                ▶
+              </Text>
+            </TouchableOpacity>
           </View>
-        </View>
 
-        <View style={styles.divider} />
-
-        <View style={styles.infoRow}>
-          <Text style={styles.label}>👤 Customer</Text>
-          <Text style={styles.value}>{t.customer_name}</Text>
-        </View>
-
-        <View style={styles.infoRow}>
-          <Text style={styles.label}>🙋 Requested Employee</Text>
-          <Text style={styles.value}>
-            {t.requested_employee_name || "-"}
+          {showDatePicker && (
+            <DateTimePicker
+              value={selectedDate}
+              mode="date"
+              display="default"
+              onChange={onDateChange}
+            />
+          )}
+        </>
+      }
+      ListEmptyComponent={
+        <View style={styles.emptyCard}>
+          <Text style={styles.emptyText}>
+            No support tickets found
           </Text>
         </View>
+      }
+      renderItem={({ item: t }) => (
+        <View style={styles.card}>
+          <View style={styles.headerRow}>
+            <Text style={styles.ticketId}>
+              Ticket #{t.id}
+            </Text>
 
-        {t.accepted_employee_name && (
+            <View
+              style={[
+                styles.statusBadge,
+                t.status === "OPEN" &&
+                styles.openBadge,
+                t.status === "ACCEPTED" &&
+                styles.acceptedBadge,
+                t.status === "REJECTED" &&
+                styles.rejectedBadge,
+                t.status === "CANCELLED" &&
+                styles.cancelledBadge,
+                t.status === "CLOSED" &&
+                styles.closedBadge,
+              ]}
+            >
+              <Text style={styles.statusText}>
+                {t.status}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.divider} />
+
           <View style={styles.infoRow}>
-            <Text style={styles.label}>✅ Accepted By</Text>
-            <Text style={styles.successText}>
-              {t.accepted_employee_name}
+            <Text style={styles.label}>
+              👤 Customer
+            </Text>
+            <Text style={styles.value}>
+              {t.customer_name}
             </Text>
           </View>
-        )}
 
-        {t.rejected_employee_name && (
-          <>
+          <View style={styles.infoRow}>
+            <Text style={styles.label}>
+              🙋 Requested Employee
+            </Text>
+            <Text style={styles.value}>
+              {t.requested_employee_name || "-"}
+            </Text>
+          </View>
+
+          {t.accepted_employee_name && (
             <View style={styles.infoRow}>
-              <Text style={styles.label}>❌ Rejected By</Text>
-              <Text style={styles.rejectText}>
-                {t.rejected_employee_name}
+              <Text style={styles.label}>
+                ✅ Accepted By
+              </Text>
+              <Text style={styles.successText}>
+                {t.accepted_employee_name}
               </Text>
             </View>
+          )}
 
-            <View style={styles.reasonBox}>
-              <Text style={styles.reasonTitle}>
-                Reject Reason
-              </Text>
-              <Text style={styles.reasonText}>
-                {t.reject_reason}
-              </Text>
-            </View>
-          </>
-        )}
+          {t.rejected_employee_name && (
+            <>
+              <View style={styles.infoRow}>
+                <Text style={styles.label}>
+                  ❌ Rejected By
+                </Text>
+                <Text style={styles.rejectText}>
+                  {t.rejected_employee_name}
+                </Text>
+              </View>
 
-        <View style={styles.messageBox}>
-          <Text style={styles.messageTitle}>Message</Text>
-          <Text style={styles.messageText}>{t.message}</Text>
+              <View style={styles.reasonBox}>
+                <Text style={styles.reasonTitle}>
+                  Reject Reason
+                </Text>
+                <Text style={styles.reasonText}>
+                  {t.reject_reason}
+                </Text>
+              </View>
+            </>
+          )}
+
+          <View style={styles.messageBox}>
+            <Text style={styles.messageTitle}>
+              Message
+            </Text>
+            <Text style={styles.messageText}>
+              {t.message}
+            </Text>
+          </View>
+
+          <Text style={styles.date}>
+            🕒{" "}
+            {new Date(
+              t.created_at
+            ).toLocaleString()}
+          </Text>
         </View>
-
-        <Text style={styles.date}>
-          🕒 {new Date(t.created_at).toLocaleString()}
-        </Text>
-      </View>
-    )}
-  />
-);
+      )}
+    />
+  );
 }
 
 const styles = StyleSheet.create({
@@ -211,7 +310,48 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#1E3348",
   },
+  dateRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginHorizontal: 16,
+    marginBottom: 16,
+  },
 
+  dayButton: {
+    backgroundColor: "#101E2D",
+    width: 45,
+    height: 45,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  dayButtonText: {
+    color: "#FFFFFF",
+    fontSize: 18,
+    fontWeight: "900",
+  },
+
+  dateButton: {
+    backgroundColor: "#101E2D",
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginHorizontal: 10,
+  },
+
+  dateText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+  },
+
+  empty: {
+    color: "#90A4AE",
+    textAlign: "center",
+    marginTop: 50,
+    fontSize: 16,
+  },
   headerRow: {
     flexDirection: "row",
     justifyContent: "space-between",

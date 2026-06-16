@@ -15,6 +15,8 @@ class UserResponse(BaseModel):
     employee_id: str | None
     email: str
     user_type: str
+    is_active: bool
+    last_login: datetime | None
     created_at: datetime
 
     class Config:

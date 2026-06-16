@@ -8,7 +8,14 @@ from fastapi import Query
 from app.database import Base, engine, get_db
 from fastapi import WebSocket 
 from fastapi import WebSocketDisconnect 
-from app.websocket_manager import manager
+from app.websocket_manager import (
+    ticket_manager,
+    order_manager,
+)
+from app.utils.auth_dependency import get_current_user
+from fastapi.security import OAuth2PasswordBearer
+from fastapi import WebSocket, WebSocketDisconnect
+
 
 # ==========================
 # Schemas
@@ -39,7 +46,7 @@ from app.schemas import (
 # ==========================
 # Services
 # ==========================
-from app.services.auth_service import create_user, authenticate_user
+from app.services.auth_service import create_user, authenticate_user,logout_user
 
 
 from app.services.product_service import (
@@ -52,6 +59,7 @@ from app.services.product_service import (
 from app.services.order_service import (
     create_order,
     get_all_orders,
+    get_current_date_pending_orders,
     get_customer_orders,
     assign_employee,
     update_order_status
@@ -70,6 +78,7 @@ from app.services.ticket_service import (
 from app.services.employee_service import (
     get_all_employees,
     get_employee_by_id,
+    get_active_employee,
     get_all_customers,
     get_admins,
     update_employee,
@@ -113,6 +122,11 @@ app.add_middleware(
 # DB Create Tables
 # ==========================
 Base.metadata.create_all(bind=engine)
+
+order_connections = []
+oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl="signin"
+)
 
 # ==========================
 # Seed Database
@@ -176,7 +190,10 @@ def home():
 # AUTH
 # ==========================
 @app.post("/signup", response_model=UserResponse)
-def signup(payload: SignUpSchema, db: Session = Depends(get_db)):
+def signup(
+    payload: SignUpSchema,
+    db: Session = Depends(get_db)
+):
 
     user = create_user(
         db=db,
@@ -188,33 +205,88 @@ def signup(payload: SignUpSchema, db: Session = Depends(get_db)):
     )
 
     if not user:
-        raise HTTPException(status_code=400, detail="User already exists")
+        raise HTTPException(
+            status_code=400,
+            detail="User already exists"
+        )
 
     return user
 
 
 @app.post("/signin")
-def signin(payload: SignInSchema, db: Session = Depends(get_db)):
+def signin(
+    payload: SignInSchema,
+    db: Session = Depends(get_db)
+):
 
-    user = authenticate_user(
+    result = authenticate_user(
         db=db,
         email=payload.email,
         password=payload.password
     )
 
-    if not user:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+    if not result:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid credentials"
+        )
+
+    user = result["user"]
 
     return {
         "message": "Login successful",
+        "access_token": result["access_token"],
+        "token_type": result["token_type"],
         "user": {
             "id": user.id,
-            "name": user.full_name,
+            "full_name": user.full_name,
             "email": user.email,
             "employee_id": user.employee_id,
             "user_type": user.user_type,
-            "created_at":user.created_at
+            "is_active": user.is_active,
+            "last_login": user.last_login,
+            "created_at": user.created_at
         }
+    }
+
+
+@app.get("/me")
+def me(
+    current_user=Depends(get_current_user)
+):
+
+    return {
+        "id": current_user.id,
+        "name": current_user.full_name,
+        "email": current_user.email,
+        "employee_id": current_user.employee_id,
+        "user_type": current_user.user_type,
+        "is_active": current_user.is_active,
+        "last_login": current_user.last_login,
+        "created_at": current_user.created_at
+    }
+
+
+
+@app.post("/logout")
+def logout(
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+):
+
+    success = logout_user(
+        db=db,
+        token=token
+    )
+
+    if not success:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid session"
+        )
+
+    return {
+        "message": "Logout successful"
     }
 
 # ==========================
@@ -262,10 +334,21 @@ def product_status(product_id: int, available: bool, db: Session = Depends(get_d
 # ==========================
 # ORDERS
 # ==========================
-@app.post("/orders", response_model=OrderResponse)
-def place_order(payload: OrderCreateSchema, db: Session = Depends(get_db)):
+@app.websocket("/ws/orders")
+async def orders_ws(websocket: WebSocket):
+    await order_manager.connect(websocket)
 
-    return create_order(
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        order_manager.disconnect(websocket)
+
+
+@app.post("/orders", response_model=OrderResponse)
+async def place_order(payload: OrderCreateSchema, db: Session = Depends(get_db)):
+
+    return await create_order(
         db=db,
         customer_id=payload.customer_id,
         product_id=payload.product_id,
@@ -286,6 +369,11 @@ def get_orders(
         order_date
     )
 
+@app.get("/orders/pending/today")
+def get_pending_orders(
+    db: Session = Depends(get_db),
+):
+    return get_current_date_pending_orders(db)
 
 @app.get("/orders/customer/{customer_id}")
 def customer_orders(customer_id: int, db: Session = Depends(get_db)):
@@ -294,9 +382,9 @@ def customer_orders(customer_id: int, db: Session = Depends(get_db)):
 
 
 @app.put("/orders/{order_id}/assign")
-def assign_order(order_id: int, employee_id: int, db: Session = Depends(get_db)):
+async def assign_order(order_id: int, employee_id: int, db: Session = Depends(get_db)):
 
-    order = assign_employee(db, order_id, employee_id)
+    order = await assign_employee(db, order_id, employee_id)
 
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
@@ -307,13 +395,13 @@ def assign_order(order_id: int, employee_id: int, db: Session = Depends(get_db))
 
 
 @app.put("/orders/{order_id}/status")
-def change_order_status(
+async def change_order_status(
     order_id: int,
     status: str,
     reject_reason: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
-    order = update_order_status(
+    order = await update_order_status(
         db,
         order_id,
         status,
@@ -331,17 +419,15 @@ def change_order_status(
 # TICKETS
 # ==========================
 @app.websocket("/ws/tickets")
-async def websocket_endpoint(
-    websocket: WebSocket
-):
-    await manager.connect(websocket)
+async def tickets_ws(websocket: WebSocket):
+    await ticket_manager.connect(websocket)
 
     try:
         while True:
             await websocket.receive_text()
-
     except WebSocketDisconnect:
-        manager.disconnect(websocket)
+        ticket_manager.disconnect(websocket)
+
 
 @app.post("/tickets", response_model=TicketResponse)
 async def create_ticket(
@@ -629,6 +715,10 @@ def employee(
         )
 
     return employee
+
+@app.get("/active-employees",)
+def active_employees(db: Session = Depends(get_db)):
+    return get_active_employee(db)
 
 @app.put(
     "/employees/{employee_id}",

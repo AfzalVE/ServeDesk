@@ -4,6 +4,7 @@
 from .auth_service import (
     create_user,
     authenticate_user,
+    logout_user,
 )
 
 
@@ -25,6 +26,7 @@ from .order_service import (
     create_order,
     get_all_orders,
     get_customer_orders,
+    get_current_date_pending_orders,
     assign_employee,
     update_order_status,
 )
@@ -49,6 +51,7 @@ from .ticket_service import (
 from .employee_service import (
     get_all_employees,
     get_employee_by_id,
+    get_active_employee,
     get_all_customers,
     get_admins,
     update_employee,
@@ -71,6 +74,7 @@ __all__ = [
     # auth
     "create_user",
     "authenticate_user",
+    "logout_user",
 
     # product
     "create_product",
@@ -83,6 +87,7 @@ __all__ = [
     # order
     "create_order",
     "get_all_orders",
+    "get_current_date_pending_orders",
     "get_customer_orders",
     "assign_employee",
     "update_order_status",
@@ -101,6 +106,7 @@ __all__ = [
     # employee
     "get_all_employees",
     "get_employee_by_id",
+    "get_active_employee"
     "get_all_customers",
     "get_admins",
     "update_employee",

@@ -1,34 +1,80 @@
 import React, { useEffect, useState } from "react";
+import { useRef } from "react";
 import {
   View,
   Text,
   StyleSheet,
   FlatList,
   ActivityIndicator,
+  TouchableOpacity
 } from "react-native";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { API_URL } from "../../config/api";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors } from "../../constants/theme";
 
 export default function Orders() {
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const insets = useSafeAreaInsets();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const socket = useRef<WebSocket | null>(null);
 
   useEffect(() => {
     loadOrders();
   }, []);
+  useEffect(() => {
+    const initWS = async () => {
+      try {
+        const userStr = await AsyncStorage.getItem("user");
+        const user = userStr ? JSON.parse(userStr) : null;
 
+        if (!user) return;
+
+        socket.current = new WebSocket(
+          API_URL.replace("http", "ws") + "/ws/orders"
+        );
+
+        socket.current.onopen = () => {
+          console.log("✅ Orders WebSocket Connected");
+        };
+
+        socket.current.onmessage = (event) => {
+          console.log("📦 Order Update:", event.data);
+
+          // reload orders whenever backend sends update
+          loadOrders();
+        };
+
+        socket.current.onerror = (error) => {
+          console.log("❌ Orders WS Error:", error);
+        };
+
+        socket.current.onclose = () => {
+          console.log("🔌 Orders WS Closed");
+        };
+      } catch (err) {
+        console.log(err);
+      }
+    };
+
+    initWS();
+
+    return () => {
+      socket.current?.close();
+    };
+  }, []);
   const loadOrders = async () => {
     try {
       const userStr = await AsyncStorage.getItem("user");
       const user = userStr ? JSON.parse(userStr) : null;
 
       const res = await fetch(
-        `${API_URL}/orders?customer_id=${user.id}`
+        `${API_URL}/orders/customer/${user.id}`
       );
 
       const data = await res.json();
@@ -72,6 +118,67 @@ export default function Orders() {
       setRefreshing(false);
     }
   };
+  const cancelOrder = async (id: number) => {
+    try {
+
+      const res = await fetch(
+        `${API_URL}/orders/${id}/status?status=CANCELLED`,
+        {
+          method: "PUT",
+        }
+      );
+
+
+      if (!res.ok) {
+        throw new Error();
+      }
+
+
+      setOrders((prev) =>
+        prev.map((order) =>
+          order.id === id
+            ? {
+              ...order,
+              status: "CANCELLED",
+            }
+            : order
+        )
+      );
+
+
+    } catch (error) {
+
+      console.log(error);
+
+    }
+  };
+  const formatDate = (date: Date) => {
+    return date.toISOString().split("T")[0];
+  };
+
+  const changeDay = (days: number) => {
+    const newDate = new Date(selectedDate);
+    newDate.setDate(newDate.getDate() + days);
+    setSelectedDate(newDate);
+  };
+
+  const onDateChange = (
+    event: any,
+    date?: Date
+  ) => {
+    setShowDatePicker(false);
+
+    if (date) {
+      setSelectedDate(date);
+    }
+  };
+  const filteredOrders = orders.filter((order) => {
+    return (
+      formatDate(
+        new Date(order.created_at)
+      ) === formatDate(selectedDate)
+    );
+  });
   if (loading) {
     return (
       <View style={styles.loader}>
@@ -84,7 +191,7 @@ export default function Orders() {
 
     <FlatList
       style={styles.container}
-      data={orders}
+      data={filteredOrders}
       keyExtractor={(item) => item.id.toString()}
       contentContainerStyle={{
         padding: 15,
@@ -92,7 +199,56 @@ export default function Orders() {
       }}
       showsVerticalScrollIndicator={false}
       ListHeaderComponent={
-        <Text style={styles.title}>📦 Your Orders</Text>
+        <>
+          <Text style={styles.title}>
+            📦 Your Orders
+          </Text>
+
+          <View style={styles.dateRow}>
+            <TouchableOpacity
+              style={styles.dayButton}
+              onPress={() => changeDay(-1)}
+            >
+              <Text style={styles.dayButtonText}>
+                ◀
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.dateButton}
+              onPress={() =>
+                setShowDatePicker(true)
+              }
+            >
+              <Text style={styles.dateText}>
+                📅 {selectedDate.toDateString()}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.dayButton}
+              onPress={() => changeDay(1)}
+            >
+              <Text style={styles.dayButtonText}>
+                ▶
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {showDatePicker && (
+            <DateTimePicker
+              value={selectedDate}
+              mode="date"
+              display="default"
+              onChange={onDateChange}
+            />
+          )}
+        </>
+      }
+      ListEmptyComponent={
+        <Text style={styles.empty}>
+          No orders found for selected date
+        </Text>
       }
 
       refreshing={refreshing}
@@ -147,6 +303,16 @@ export default function Orders() {
               {item.status}
             </Text>
           </View>
+          {item.status === "PENDING" && (
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={() => cancelOrder(item.id)}
+            >
+              <Text style={styles.cancelButtonText}>
+                Cancel Order
+              </Text>
+            </TouchableOpacity>
+          )}
           {item.reject_reason ? (
             <View style={styles.reasonBox}>
               <Text style={styles.reasonTitle}>
@@ -280,4 +446,58 @@ const styles = StyleSheet.create({
   rejected: {
     backgroundColor: "#D32F2F",
   },
+  dateRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginHorizontal: 15,
+    marginBottom: 20,
+  },
+
+  dayButton: {
+    backgroundColor: "#101E2D",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+
+  dayButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "800",
+  },
+
+  dateButton: {
+    flex: 1,
+    marginHorizontal: 10,
+    backgroundColor: "#101E2D",
+    padding: 12,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+
+  dateText: {
+    color: "#FFFFFF",
+    fontWeight: "800",
+  },
+
+  empty: {
+    color: "#AAA",
+    textAlign: "center",
+    marginTop: 50,
+  },
+  cancelButton: {
+  marginTop: 15,
+  backgroundColor: "#D32F2F",
+  paddingVertical: 10,
+  borderRadius: 10,
+  alignItems: "center",
+},
+
+
+cancelButtonText: {
+  color: "#FFFFFF",
+  fontWeight: "800",
+  fontSize: 14,
+},
 });
