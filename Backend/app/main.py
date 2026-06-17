@@ -98,6 +98,7 @@ from app.services.announcement_service import (
 from app.models.user import User
 from app.models.product import Product
 from app.utils.security import hash_password
+from app.schemas.push_token import PushTokenRequest
 
 # ==========================
 # App Init
@@ -769,3 +770,23 @@ def remove_employee(
         "message":
         "Employee deleted successfully"
     }
+
+@app.post("/push-token")
+def save_push_token(
+    payload: PushTokenRequest,
+    db: Session = Depends(get_db)
+):
+    user = (
+        db.query(User)
+        .filter(User.id == payload.user_id)
+        .first()
+    )
+
+    if not user:
+        return {"error": "User not found"}
+
+    user.expo_push_token = payload.push_token
+
+    db.commit()
+
+    return {"success": True}

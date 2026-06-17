@@ -6,7 +6,11 @@ from app.models.user import User
 from datetime import datetime, timedelta
 from sqlalchemy import and_, or_
 from app.websocket_manager import ticket_manager
+from app.services.employee_service import get_active_employee
 import asyncio
+from app.services.notification_service import (
+    send_push_notification
+)
 
 
 # ===================================
@@ -64,6 +68,16 @@ def raise_ticket(
             }
         ) 
     )
+    if employee and employee.expo_push_token:
+        send_push_notification(
+            employee.expo_push_token,
+            "New Ticket",
+            f"{customer.full_name} raised a ticket",
+            {
+                "type": "ticket",
+                "ticket_id": ticket.id
+            }
+        )
 
 
     return ticket
@@ -216,7 +230,27 @@ def reject_ticket(
     ticket.status = "OPEN"
 
     db.commit()
-    asyncio.create_task( ticket_manager.broadcast( { "event": "ticket_rejected", "ticket_id": ticket.id } ) )
+    db.refresh(ticket)
+    active_employees = get_active_employee(db)
+
+    employee_ids = [
+        emp.id
+        for emp in active_employees
+        if emp.id != employee_id  # employee who rejected
+    ]
+
+    asyncio.create_task(
+        ticket_manager.broadcast(
+            {
+                "event": "ticket_rejected",
+                "ticket": {
+                    "id": ticket.id,
+                    "rejected_employee_id": employee_id,
+                },
+                "employee_ids": employee_ids,
+            }
+        )
+    )    
     db.refresh(ticket)
 
     return ticket

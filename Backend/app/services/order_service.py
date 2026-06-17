@@ -8,6 +8,12 @@ from app.models.user import User       # IMPORTANT ADD
 from app.websocket_manager import order_manager
 import asyncio
 from datetime import date
+from app.services.notification_service import (
+    send_push_notification
+)
+from app.services.employee_service import (
+    get_active_employee
+)   
 
 
 # =========================
@@ -46,6 +52,21 @@ async def create_order(
         "type": "order_created",
         "order": enriched
     })
+    employees = get_active_employee(db)
+
+    for employee in employees:
+
+        if employee.expo_push_token:
+
+            send_push_notification(
+            employee.expo_push_token,
+            "New Order",
+            f"Order #{order.id} received",
+            {
+                "type": "order",
+                "order_id": order.id
+            }
+)
 
     return enriched
 

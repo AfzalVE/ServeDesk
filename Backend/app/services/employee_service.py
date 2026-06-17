@@ -23,7 +23,7 @@ def get_employee_by_id(
     ).first()
 
 def get_active_employee(db: Session):
-    print("Here")
+
 
     return (
         db.query(User)

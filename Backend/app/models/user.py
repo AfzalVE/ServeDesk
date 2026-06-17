@@ -43,10 +43,8 @@ class User(Base):
         String,
         nullable=False
     )
-    # ADMIN
-    # CUSTOMER
-    # EMPLOYEE
 
+    expo_push_token = Column(String, nullable=True)
     created_at = Column(
         DateTime,
         default=datetime.utcnow
@@ -54,3 +52,7 @@ class User(Base):
 
     is_active = Column(Boolean, default=False)
     last_login = Column(DateTime, nullable=True)
+
+    # ADMIN
+    # CUSTOMER
+    # EMPLOYEE

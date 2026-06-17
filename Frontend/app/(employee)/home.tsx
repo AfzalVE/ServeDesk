@@ -66,25 +66,70 @@ export default function EmployeeDashboard() {
   const [actionLoading, setActionLoading] = useState(false);
   const ticketSocket = useRef<WebSocket | null>(null);
   const orderSocket = useRef<WebSocket | null>(null);
+  const vibrationInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const cycleTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isVibrating = useRef(false);
 
   // =====================
   // LOAD DATA
   // =====================
+  const startTicketVibration = () => {
+    if (isVibrating.current) return;
 
-  const ringPhone = () => {
-    // Vibrate immediately
-    Vibration.vibrate(1000);
+    isVibrating.current = true;
 
-    // Vibrate every 2 seconds
-    const interval = setInterval(() => {
+    const startVibrationCycle = () => {
+      if (!isVibrating.current) return;
+
+      console.log("🔔 Starting vibration cycle");
+
+      // Same behavior as before
       Vibration.vibrate(1000);
-    }, 2000);
 
-    // Stop after 1 minute
-    setTimeout(() => {
-      clearInterval(interval);
-      Vibration.cancel(); // stop any ongoing vibration
-    }, 60000);
+      vibrationInterval.current = setInterval(() => {
+        Vibration.vibrate(1000);
+      }, 2000);
+
+      // Vibrate for 1 minute
+      cycleTimeout.current = setTimeout(() => {
+        if (!isVibrating.current) return;
+
+        console.log("⏸ Stopping vibration for 1 minute");
+
+        if (vibrationInterval.current) {
+          clearInterval(vibrationInterval.current);
+          vibrationInterval.current = null;
+        }
+
+        Vibration.cancel();
+
+        // Wait 1 minute, then start again
+        cycleTimeout.current = setTimeout(() => {
+          startVibrationCycle();
+        }, 60000);
+
+      }, 60000);
+    };
+
+    startVibrationCycle();
+  };
+
+  const stopTicketVibration = () => {
+    console.log("🛑 Stopping ticket vibration");
+
+    isVibrating.current = false;
+
+    if (vibrationInterval.current) {
+      clearInterval(vibrationInterval.current);
+      vibrationInterval.current = null;
+    }
+
+    if (cycleTimeout.current) {
+      clearTimeout(cycleTimeout.current);
+      cycleTimeout.current = null;
+    }
+
+    Vibration.cancel();
   };
   useEffect(() => {
     initialize();
@@ -110,11 +155,55 @@ export default function EmployeeDashboard() {
 
         console.log("🎫 Ticket WS:", parsed);
 
+        const ticket = parsed.ticket;
+
+        // =====================
+        // NEW TICKET
+        // =====================
         if (
           parsed.event === "ticket_created" &&
-          parsed.ticket?.requested_employee_id === user.id
+          ticket?.requested_employee_id === user.id
         ) {
-          ringPhone();
+          console.log("🔔 Ticket assigned to me");
+          startTicketVibration();
+        }
+
+        // =====================
+        // ACCEPTED
+        // =====================
+        if (
+          parsed.event === "ticket_accepted"
+        ) {
+          console.log()
+          console.log("✅ Ticket accepted");
+          stopTicketVibration();
+        }
+
+        // =====================
+        // CANCELLED
+        // =====================
+        if (
+          parsed.event === "ticket_cancelled"
+        ) {
+          console.log("❌ Ticket cancelled");
+          stopTicketVibration();
+        }
+
+        // =====================
+        // REJECTED
+        // =====================
+        if (
+          parsed.event === "ticket_rejected" &&
+          ticket?.rejected_employee_id === user.id
+        ) {
+          stopTicketVibration();
+        }
+        if (
+          parsed.event === "ticket_rejected" &&
+          parsed.employee_ids?.includes(user.id)
+        ) {
+          console.log("All Employees: ", parsed.employee_ids, "User id: ", user.id)
+          startTicketVibration();
         }
 
         fetchData();
@@ -184,10 +273,14 @@ export default function EmployeeDashboard() {
     // =====================
     return () => {
 
+      stopTicketVibration();
+
+
       if (ticketSocket.current) {
         ticketSocket.current.close();
         ticketSocket.current = null;
       }
+
 
       if (orderSocket.current) {
         orderSocket.current.close();

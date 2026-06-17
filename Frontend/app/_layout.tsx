@@ -2,7 +2,75 @@ import { Stack, useRouter, useSegments } from "expo-router";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { View, ActivityIndicator } from "react-native";
+import { View, ActivityIndicator, Platform } from "react-native";
+import * as Notifications from "expo-notifications";
+import * as Device from "expo-device";
+
+// =========================
+// NOTIFICATION HANDLER
+// =========================
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
+
+// =========================
+// REGISTER PUSH TOKEN
+// =========================
+
+async function registerForPushNotificationsAsync() {
+  try {
+    if (!Device.isDevice) {
+      console.log("Physical device required");
+      return null;
+    }
+
+    if (Platform.OS === "android") {
+      await Notifications.setNotificationChannelAsync(
+        "default",
+        {
+          name: "default",
+          importance: Notifications.AndroidImportance.MAX,
+          vibrationPattern: [0, 250, 250, 250],
+          lockscreenVisibility:
+            Notifications.AndroidNotificationVisibility.PUBLIC,
+        }
+      );
+    }
+
+    const { status: existingStatus } =
+      await Notifications.getPermissionsAsync();
+
+    let finalStatus = existingStatus;
+
+    if (existingStatus !== "granted") {
+      const { status } =
+        await Notifications.requestPermissionsAsync();
+
+      finalStatus = status;
+    }
+
+    if (finalStatus !== "granted") {
+      console.log("Notification permission denied");
+      return null;
+    }
+
+    const token =
+      await Notifications.getExpoPushTokenAsync();
+
+    console.log("Expo Push Token:", token.data);
+
+    return token.data;
+  } catch (error) {
+    console.log("Push registration error:", error);
+    return null;
+  }
+}
 
 export default function RootLayout() {
   const router = useRouter();
@@ -10,13 +78,67 @@ export default function RootLayout() {
 
   const [loading, setLoading] = useState(true);
 
+  // =========================
+  // PUSH TOKEN REGISTRATION
+  // =========================
+
+  useEffect(() => {
+    const initNotifications = async () => {
+      const token =
+        await registerForPushNotificationsAsync();
+
+      if (token) {
+        await AsyncStorage.setItem(
+          "expoPushToken",
+          token
+        );
+      }
+    };
+
+    initNotifications();
+  }, []);
+
+  // =========================
+  // NOTIFICATION CLICK
+  // =========================
+
+  useEffect(() => {
+    const subscription =
+      Notifications.addNotificationResponseReceivedListener(
+        (response) => {
+          const data =
+            response.notification.request.content.data;
+
+          console.log(
+            "Notification tapped:",
+            data
+          );
+
+          if (data?.type === "ticket") {
+            router.push("/(employee)/home");
+          }
+
+          if (data?.type === "order") {
+            router.push("/(employee)/home");
+          }
+        }
+      );
+
+    return () => subscription.remove();
+  }, []);
+
+  // =========================
+  // AUTH CHECK
+  // =========================
+
   useEffect(() => {
     checkAuth();
   }, []);
 
   const checkAuth = async () => {
     try {
-      const userStr = await AsyncStorage.getItem("user");
+      const userStr =
+        await AsyncStorage.getItem("user");
 
       if (!userStr) {
         setLoading(false);
@@ -25,43 +147,81 @@ export default function RootLayout() {
 
       const user = JSON.parse(userStr);
 
-      // prevent redirect loops
-      const inAuthGroup = segments[0] === "(auth)";
-      const inCustomer = segments[0] === "(customer)";
-      const inEmployee = segments[0] === "(employee)";
-      const inAdmin = segments[0] === "(admin)";
+      const inAuthGroup =
+        segments[0] === "(auth)";
+      const inCustomer =
+        segments[0] === "(customer)";
+      const inEmployee =
+        segments[0] === "(employee)";
+      const inAdmin =
+        segments[0] === "(admin)";
 
-      if (inAuthGroup) return;
+      if (inAuthGroup) {
+        setLoading(false);
+        return;
+      }
 
-      if (user.user_type === "CUSTOMER" && !inCustomer) {
+      if (
+        user.user_type === "CUSTOMER" &&
+        !inCustomer
+      ) {
         router.replace("/(customer)/home");
       }
 
-      if (user.user_type === "EMPLOYEE" && !inEmployee) {
+      if (
+        user.user_type === "EMPLOYEE" &&
+        !inEmployee
+      ) {
         router.replace("/(employee)/home");
       }
 
-      if (user.user_type === "ADMIN" && !inAdmin) {
+      if (
+        user.user_type === "ADMIN" &&
+        !inAdmin
+      ) {
         router.replace("/(admin)/dashboard");
       }
 
       setLoading(false);
-    } catch {
+    } catch (error) {
+      console.log(error);
       setLoading(false);
     }
   };
 
+  // =========================
+  // LOADER
+  // =========================
+
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#07111F" }}>
-        <ActivityIndicator color="#2D8CFF" size="large" />
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: "#07111F",
+        }}
+      >
+        <ActivityIndicator
+          color="#2D8CFF"
+          size="large"
+        />
       </View>
     );
   }
 
+  // =========================
+  // APP
+  // =========================
+
   return (
     <SafeAreaProvider>
-      <Stack screenOptions={{ headerShown: false }} />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+        }}
+      />
     </SafeAreaProvider>
   );
 }

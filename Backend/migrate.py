@@ -139,9 +139,55 @@
 
 # print("Migration completed.")
 
+# from sqlalchemy import create_engine, text
+
+# DATABASE_URL = "postgresql+psycopg://neondb_owner:npg_NlZ4FHvLJ2fg@ep-divine-glitter-apdpo021.c-7.us-east-1.aws.neon.tech/neondb?sslmode=require"
+
+# engine = create_engine(DATABASE_URL)
+
+# with engine.begin() as conn:
+
+#     try:
+#         conn.execute(text("""
+#             ALTER TABLE users
+#             ADD COLUMN is_active BOOLEAN DEFAULT FALSE
+#         """))
+#         print("Added users.is_active")
+#     except Exception as e:
+#         print("is_active:", e)
+
+#     try:
+#         conn.execute(text("""
+#             ALTER TABLE users
+#             ADD COLUMN last_login TIMESTAMP
+#         """))
+#         print("Added users.last_login")
+#     except Exception as e:
+#         print("last_login:", e)
+
+#     try:
+#         conn.execute(text("""
+#             CREATE TABLE IF NOT EXISTS user_sessions (
+#                 id SERIAL PRIMARY KEY,
+#                 user_id INTEGER NOT NULL REFERENCES users(id),
+#                 token TEXT UNIQUE NOT NULL,
+#                 login_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+#                 logout_time TIMESTAMP,
+#                 is_active BOOLEAN DEFAULT TRUE
+#             )
+#         """))
+#         print("Created user_sessions table")
+#     except Exception as e:
+#         print("user_sessions:", e)
+
+# print("Migration completed.")
 from sqlalchemy import create_engine, text
 
-DATABASE_URL = "postgresql+psycopg://neondb_owner:npg_NlZ4FHvLJ2fg@ep-divine-glitter-apdpo021.c-7.us-east-1.aws.neon.tech/neondb?sslmode=require"
+# =========================
+# POSTGRES (RENDER / NEON)
+# =========================
+
+DATABASE_URL = "postgresql+psycopg://neondb_owner:@ep-divine-glitter-apdpo021.c-7.us-east-1.aws.neon.tech/neondb?sslmode=require"
 
 engine = create_engine(DATABASE_URL)
 
@@ -150,34 +196,10 @@ with engine.begin() as conn:
     try:
         conn.execute(text("""
             ALTER TABLE users
-            ADD COLUMN is_active BOOLEAN DEFAULT FALSE
+            ADD COLUMN expo_push_token TEXT
         """))
-        print("Added users.is_active")
+        print("Added users.expo_push_token")
     except Exception as e:
-        print("is_active:", e)
-
-    try:
-        conn.execute(text("""
-            ALTER TABLE users
-            ADD COLUMN last_login TIMESTAMP
-        """))
-        print("Added users.last_login")
-    except Exception as e:
-        print("last_login:", e)
-
-    try:
-        conn.execute(text("""
-            CREATE TABLE IF NOT EXISTS user_sessions (
-                id SERIAL PRIMARY KEY,
-                user_id INTEGER NOT NULL REFERENCES users(id),
-                token TEXT UNIQUE NOT NULL,
-                login_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                logout_time TIMESTAMP,
-                is_active BOOLEAN DEFAULT TRUE
-            )
-        """))
-        print("Created user_sessions table")
-    except Exception as e:
-        print("user_sessions:", e)
+        print("expo_push_token:", e)
 
 print("Migration completed.")
