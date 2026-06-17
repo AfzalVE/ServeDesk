@@ -1,5 +1,6 @@
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
+import { AppState } from "react-native";
 import { Vibration } from "react-native";
 import {
   ScrollView,
@@ -16,6 +17,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_URL } from "../../config/api";
 import { useRef } from "react";
 import { colors } from "../../constants/theme";
+import * as Notifications from "expo-notifications";
 // =====================
 // TYPES
 // =====================
@@ -131,165 +133,223 @@ export default function EmployeeDashboard() {
 
     Vibration.cancel();
   };
+
+  const connectSockets = () => {
+  if (!user?.id) return;
+
+  console.log("🔄 Connecting sockets...");
+
+  // Close old sockets first
+  if (ticketSocket.current) {
+    ticketSocket.current.close();
+  }
+
+  if (orderSocket.current) {
+    orderSocket.current.close();
+  }
+
+  // =====================
+  // TICKET SOCKET
+  // =====================
+
+  ticketSocket.current = new WebSocket(
+    API_URL.replace(/^http/, "ws") + "/ws/tickets"
+  );
+
+  ticketSocket.current.onopen = () => {
+    console.log("✅ Ticket WS Connected");
+  };
+
+  ticketSocket.current.onmessage = async (event) => {
+    try {
+      const parsed = JSON.parse(event.data);
+
+      console.log("🎫 Ticket WS:", parsed);
+
+      const ticket = parsed.ticket;
+
+      if (
+        parsed.event === "ticket_created" &&
+        ticket?.requested_employee_id === user.id
+      ) {
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: "New Ticket",
+            body:
+              ticket.message ||
+              "A ticket has been assigned to you",
+            data: {
+              type: "ticket",
+            },
+          },
+          trigger: null,
+        });
+
+        startTicketVibration();
+      }
+
+      if (parsed.event === "ticket_accepted") {
+        stopTicketVibration();
+      }
+
+      if (parsed.event === "ticket_cancelled") {
+        stopTicketVibration();
+      }
+
+      if (
+        parsed.event === "ticket_rejected" &&
+        ticket?.rejected_employee_id === user.id
+      ) {
+        stopTicketVibration();
+      }
+
+      if (
+        parsed.event === "ticket_rejected" &&
+        parsed.employee_ids?.includes(user.id)
+      ) {
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: "New Ticket",
+            body:
+              ticket.message ||
+              "A ticket has been assigned to you",
+            data: {
+              type: "ticket",
+            },
+          },
+          trigger: null,
+        });
+
+        startTicketVibration();
+      }
+
+      fetchData();
+    } catch (err) {
+      console.log("Ticket WS Parse Error:", err);
+    }
+  };
+
+  ticketSocket.current.onerror = (error) => {
+    console.log("❌ Ticket WS Error:", error);
+  };
+
+  ticketSocket.current.onclose = () => {
+    console.log("❌ Ticket WS Closed");
+  };
+
+  // =====================
+  // ORDER SOCKET
+  // =====================
+
+  orderSocket.current = new WebSocket(
+    API_URL.replace(/^http/, "ws") + "/ws/orders"
+  );
+
+  orderSocket.current.onopen = () => {
+    console.log("✅ Order WS Connected Employee");
+  };
+
+  orderSocket.current.onmessage = async (event) => {
+    try {
+      const parsed = JSON.parse(event.data);
+
+      console.log("📦 Order WS:", parsed);
+
+      if (parsed.type === "order_created") {
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: "New Order",
+            body: `Order #${parsed.order?.id} received`,
+            data: {
+              type: "order",
+            },
+          },
+          trigger: null,
+        });
+
+        Vibration.vibrate(500);
+
+        Alert.alert(
+          "New Order",
+          `Order #${parsed.order?.id} received`
+        );
+      }
+
+      fetchData();
+    } catch (err) {
+      console.log("Order WS Parse Error:", err);
+    }
+  };
+
+  orderSocket.current.onerror = (error) => {
+    console.log("❌ Order WS Error:", error);
+  };
+
+  orderSocket.current.onclose = () => {
+    console.log("❌ Employee Order WS Closed");
+  };
+};
+useEffect(() => {
+  if (!user?.id) return;
+
+  connectSockets();
+}, [user?.id]);
   useEffect(() => {
     initialize();
   }, []);
-
   useEffect(() => {
-    if (!user?.id) return;
+  const subscription = AppState.addEventListener(
+    "change",
+    (nextState) => {
+      console.log("📱 App State:", nextState);
 
-    // =====================
-    // TICKET SOCKET
-    // =====================
-    ticketSocket.current = new WebSocket(
-      API_URL.replace(/^http/, "ws") + "/ws/tickets"
-    );
+      if (nextState === "active") {
+        console.log(
+          "🔄 App returned to foreground"
+        );
 
-    ticketSocket.current.onopen = () => {
-      console.log("✅ Ticket WS Connected");
-    };
+        const orderClosed =
+          !orderSocket.current ||
+          orderSocket.current.readyState ===
+            WebSocket.CLOSED;
 
-    ticketSocket.current.onmessage = (event) => {
-      try {
-        const parsed = JSON.parse(event.data);
+        const ticketClosed =
+          !ticketSocket.current ||
+          ticketSocket.current.readyState ===
+            WebSocket.CLOSED;
 
-        console.log("🎫 Ticket WS:", parsed);
-
-        const ticket = parsed.ticket;
-
-        // =====================
-        // NEW TICKET
-        // =====================
-        if (
-          parsed.event === "ticket_created" &&
-          ticket?.requested_employee_id === user.id
-        ) {
-          console.log("🔔 Ticket assigned to me");
-          startTicketVibration();
-        }
-
-        // =====================
-        // ACCEPTED
-        // =====================
-        if (
-          parsed.event === "ticket_accepted"
-        ) {
-          console.log()
-          console.log("✅ Ticket accepted");
-          stopTicketVibration();
-        }
-
-        // =====================
-        // CANCELLED
-        // =====================
-        if (
-          parsed.event === "ticket_cancelled"
-        ) {
-          console.log("❌ Ticket cancelled");
-          stopTicketVibration();
-        }
-
-        // =====================
-        // REJECTED
-        // =====================
-        if (
-          parsed.event === "ticket_rejected" &&
-          ticket?.rejected_employee_id === user.id
-        ) {
-          stopTicketVibration();
-        }
-        if (
-          parsed.event === "ticket_rejected" &&
-          parsed.employee_ids?.includes(user.id)
-        ) {
-          console.log("All Employees: ", parsed.employee_ids, "User id: ", user.id)
-          startTicketVibration();
-        }
-
-        fetchData();
-
-      } catch (err) {
-        console.log("Ticket WS Parse Error:", err);
-      }
-    };
-
-    ticketSocket.current.onerror = (error) => {
-      console.log("Ticket WS Error:", error);
-    };
-
-    ticketSocket.current.onclose = () => {
-      console.log("Ticket WS Closed");
-    };
-
-
-    // =====================
-    // ORDER SOCKET
-    // =====================
-    orderSocket.current = new WebSocket(
-      API_URL.replace(/^http/, "ws") + "/ws/orders"
-
-    );
-    console.log(API_URL.replace(/^http/, "ws") + "/ws/orders")
-    orderSocket.current.onopen = () => {
-      console.log("✅ Order WS Connected Employee");
-    };
-
-    orderSocket.current.onmessage = (event) => {
-      try {
-        const parsed = JSON.parse(event.data);
-
-        console.log("📦 Order WS:", parsed);
-
-        if (parsed.type === "order_created") {
-
-          Vibration.vibrate(500);
-
-          Alert.alert(
-            "New Order",
-            `Order #${parsed.order?.id} received`
+        if (orderClosed || ticketClosed) {
+          console.log(
+            "♻️ Reconnecting closed sockets..."
           );
+
+          connectSockets();
         }
-
-        fetchData();
-
-      } catch (err) {
-        console.log("Order WS Parse Error:", err);
       }
-    };
+    }
+  );
+
+  return () => {
+    subscription.remove();
+  };
+}, [user?.id]);
+useEffect(() => {
+  return () => {
+    stopTicketVibration();
+
+    if (ticketSocket.current) {
+      ticketSocket.current.close();
+      ticketSocket.current = null;
+    }
+
+    if (orderSocket.current) {
+      orderSocket.current.close();
+      orderSocket.current = null;
+    }
+  };
+}, []);
 
 
-    orderSocket.current.onerror = (error) => {
-      console.log("Order WS Error:", error);
-    };
-
-
-    orderSocket.current.onclose = () => {
-      console.log("Employee Order WS Closed");
-    };
-
-
-    // =====================
-    // CLEANUP
-    // =====================
-    return () => {
-
-      stopTicketVibration();
-
-
-      if (ticketSocket.current) {
-        ticketSocket.current.close();
-        ticketSocket.current = null;
-      }
-
-
-      if (orderSocket.current) {
-        orderSocket.current.close();
-        orderSocket.current = null;
-      }
-
-    };
-
-  }, [user?.id]);
   const initialize = async () => {
     await loadUser();
     await fetchData();

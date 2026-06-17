@@ -11,6 +11,7 @@ export async function registerForPushNotifications() {
 
     const { status: existingStatus } =
       await Notifications.getPermissionsAsync();
+      console.log(existingStatus)
 
     let finalStatus = existingStatus;
 
@@ -29,6 +30,7 @@ export async function registerForPushNotifications() {
     const projectId =
       Constants.expoConfig?.extra?.eas?.projectId ??
       Constants.easConfig?.projectId;
+      console.log(projectId)
 
     if (!projectId) {
       console.log("EAS Project ID not found");

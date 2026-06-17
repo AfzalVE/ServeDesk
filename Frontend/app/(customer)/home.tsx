@@ -8,6 +8,7 @@ import {
   ScrollView,
   TextInput,
   Alert,
+  AppState,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { colors } from "../../constants/theme";
@@ -45,56 +46,53 @@ export default function Home() {
   const [qty, setQty] = useState<{ [key: number]: number }>({});
   const insets = useSafeAreaInsets();
 
+const connectSockets = () => {
+  if (!user?.id) return;
 
+  console.log("🔄 Reconnecting Customer Sockets");
+
+  // Close existing sockets first
+  ticketSocket.current?.close();
+  orderSocket.current?.close();
 
   // =========================
-  // LOAD DATA
+  // TICKET SOCKET
   // =========================
-  useEffect(() => {
-    loadAll();
-  }, []);
-  useEffect(() => {
+
+  ticketSocket.current = new WebSocket(
+    API_URL.replace("http", "ws") + "/ws/tickets"
+  );
+
+  ticketSocket.current.onopen = () => {
+    console.log("✅ Customer Ticket WS Connected");
+  };
+
+  ticketSocket.current.onmessage = (event) => {
+    console.log("📩 Ticket WS:", event.data);
+
     if (!user?.id) return;
 
-    // Create websocket connection
-    ticketSocket.current = new WebSocket(
-      API_URL.replace("http", "ws") + "/ws/tickets"
-    );
+    fetchActiveTicket(user.id);
+  };
 
-    ticketSocket.current.onopen = () => {
-      console.log("✅ WebSocket Connected");
-    };
+  ticketSocket.current.onerror = (error) => {
+    console.log("❌ Ticket WS Error:", error);
+  };
 
-    ticketSocket.current.onmessage = (event) => {
-      console.log("📩 WS Message:", event.data);
+  ticketSocket.current.onclose = () => {
+    console.log("🔌 Ticket WS Closed");
+  };
 
-      // Refresh dashboard data whenever backend sends an event
-      if (!user?.id) return;
-      fetchActiveTicket(user.id);
-    };
-
-    ticketSocket.current.onerror = (error) => {
-      console.log("❌ WebSocket Error:", error);
-    };
-
-    ticketSocket.current.onclose = () => {
-      console.log("🔌 WebSocket Closed");
-    };
-
-    return () => {
-      ticketSocket.current?.close();
-    };
-  }, [user?.id]);
-
-  useEffect(() => {
-  if (!user?.id) return;
+  // =========================
+  // ORDER SOCKET
+  // =========================
 
   orderSocket.current = new WebSocket(
     API_URL.replace("http", "ws") + "/ws/orders"
   );
 
   orderSocket.current.onopen = () => {
-    console.log("✅ Orders WS Connected");
+    console.log("✅ Customer Order WS Connected");
   };
 
   orderSocket.current.onmessage = async (event) => {
@@ -108,7 +106,6 @@ export default function Home() {
         data.event === "order_updated" ||
         data.event === "order_assigned"
       ) {
-        // refresh customer data
         await loadTodayAnnouncements();
 
         if (user?.id) {
@@ -121,17 +118,84 @@ export default function Home() {
   };
 
   orderSocket.current.onerror = (error) => {
-    console.log("❌ Orders WS Error:", error);
+    console.log("❌ Order WS Error:", error);
   };
 
   orderSocket.current.onclose = () => {
-    console.log("🔌 Orders WS Closed");
+    console.log("🔌 Order WS Closed");
   };
+};
+
+  // =========================
+  // LOAD DATA
+  // =========================
+  useEffect(() => {
+    loadAll();
+  }, []);
+
+
+useEffect(() => {
+  if (!user?.id) return;
+
+  connectSockets();
+}, [user?.id]);
+
+useEffect(() => {
+  const subscription = AppState.addEventListener(
+    "change",
+    (nextState) => {
+      console.log("📱 App State:", nextState);
+
+      if (nextState === "active") {
+        console.log(
+          "🔄 App returned to foreground"
+        );
+
+        const ticketClosed =
+          !ticketSocket.current ||
+          ticketSocket.current.readyState ===
+            WebSocket.CLOSED;
+
+        const orderClosed =
+          !orderSocket.current ||
+          orderSocket.current.readyState ===
+            WebSocket.CLOSED;
+
+        console.log(
+          "Ticket State:",
+          ticketSocket.current?.readyState
+        );
+
+        console.log(
+          "Order State:",
+          orderSocket.current?.readyState
+        );
+
+        if (ticketClosed || orderClosed) {
+          console.log(
+            "♻️ Reconnecting sockets..."
+          );
+
+          connectSockets();
+        }
+      }
+    }
+  );
 
   return () => {
-    orderSocket.current?.close();
+    subscription.remove();
   };
 }, [user?.id]);
+
+useEffect(() => {
+  return () => {
+    ticketSocket.current?.close();
+    orderSocket.current?.close();
+
+    ticketSocket.current = null;
+    orderSocket.current = null;
+  };
+}, []);
   const loadAll = async () => {
     try {
       setLoading(true);

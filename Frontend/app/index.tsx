@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Notifications from "expo-notifications";
 
 export default function Home() {
   const [loading, setLoading] = useState(true);
@@ -39,6 +40,24 @@ export default function Home() {
     }
 
     setLoading(false);
+  };
+  const testNotification = async () => {
+    try {
+      console.log("Testing notification...");
+
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "Test Notification",
+          body: "Notifications are working 🎉",
+          sound: true,
+        },
+        trigger: null,
+      });
+
+      console.log("Notification scheduled");
+    } catch (err) {
+      console.log("Notification Error:", err);
+    }
   };
 
   if (loading) {
@@ -93,6 +112,15 @@ export default function Home() {
             activeOpacity={0.8}
           >
             <Text style={styles.primaryText}>Login to Dashboard</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.testBtn}
+            onPress={testNotification}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.testBtnText}>
+              Test Notification
+            </Text>
           </TouchableOpacity>
 
           <Text style={styles.footerHint}>
@@ -207,5 +235,18 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 12,
     fontSize: 12,
+  },
+  testBtn: {
+    marginTop: 12,
+    backgroundColor: "#16A34A",
+    padding: 16,
+    borderRadius: 14,
+    alignItems: "center",
+  },
+
+  testBtnText: {
+    color: "#fff",
+    fontWeight: "900",
+    fontSize: 16,
   },
 });
