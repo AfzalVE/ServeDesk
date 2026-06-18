@@ -2,6 +2,8 @@ from sqlalchemy.orm import Session
 
 from app.models.user import User
 from app.schemas.user import UserUpdate
+from sqlalchemy.orm import Session
+
 
 # ==========================
 # GET EMPLOYEES
@@ -21,82 +23,27 @@ def get_all_employees(
     )
 
 
-# ==========================
-# GET SINGLE EMPLOYEE
-# ==========================
-def get_employee(
+
+
+
+
+def save_push_token(
     db: Session,
-    employee_id: int,
+    user_id: int,
+    push_token: str
 ):
-    return (
+    user = (
         db.query(User)
-        .filter(
-            User.id == employee_id
-        )
+        .filter(User.id == user_id)
         .first()
     )
 
-
-# ==========================
-# UPDATE EMPLOYEE
-# ==========================
-def update_employee(
-    db: Session,
-    employee_id: int,
-    data: UserUpdate,
-):
-    employee = (
-        db.query(User)
-        .filter(
-            User.id == employee_id
-        )
-        .first()
-    )
-
-    if not employee:
+    if not user:
         return None
 
-    employee.full_name = (
-        data.full_name
-    )
-
-    employee.employee_id = (
-        data.employee_id
-    )
-
-    employee.email = (
-        data.email
-    )
-
-    employee.user_type = (
-        data.user_type
-    )
+    user.expo_push_token = push_token
 
     db.commit()
-    db.refresh(employee)
+    db.refresh(user)
 
-    return employee
-
-
-# ==========================
-# DELETE EMPLOYEE
-# ==========================
-def delete_employee(
-    db: Session,
-    employee_id: int,
-):
-    employee = (
-        db.query(User)
-        .filter(
-            User.id == employee_id
-        )
-        .first()
-    )
-
-    if not employee:
-        return False
-
-    db.delete(employee)
-    db.commit()
-
-    return True
+    return user

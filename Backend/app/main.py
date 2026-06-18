@@ -15,6 +15,8 @@ from app.websocket_manager import (
 from app.utils.auth_dependency import get_current_user
 from fastapi.security import OAuth2PasswordBearer
 from fastapi import WebSocket, WebSocketDisconnect
+from app.schemas.push_token import PushTokenRequest
+from app.services.user_service import save_push_token
 
 
 # ==========================
@@ -250,6 +252,20 @@ def signin(
         }
     }
 
+
+
+
+@app.post("/save-push-token")
+def save_token(
+    request: PushTokenRequest,
+    db: Session = Depends(get_db)
+):
+    print("Push Token")
+    return save_push_token(
+        db,
+        request.user_id,
+        request.push_token
+    )
 
 @app.get("/me")
 def me(
@@ -771,22 +787,3 @@ def remove_employee(
         "Employee deleted successfully"
     }
 
-@app.post("/push-token")
-def save_push_token(
-    payload: PushTokenRequest,
-    db: Session = Depends(get_db)
-):
-    user = (
-        db.query(User)
-        .filter(User.id == payload.user_id)
-        .first()
-    )
-
-    if not user:
-        return {"error": "User not found"}
-
-    user.expo_push_token = payload.push_token
-
-    db.commit()
-
-    return {"success": True}

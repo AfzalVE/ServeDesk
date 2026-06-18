@@ -64,9 +64,9 @@ export default function SignIn() {
             "expoPushToken",
             pushToken
           );
-
+          console.log(pushToken)
           await fetch(
-            `${API_URL}/users/push-token`,
+            `${API_URL}/save-push-token`,
             {
               method: "POST",
               headers: {

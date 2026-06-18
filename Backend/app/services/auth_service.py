@@ -84,6 +84,7 @@ def logout_user(
         UserSession.token == token,
         UserSession.is_active == True
     ).first()
+    
 
     if not session:
         return False

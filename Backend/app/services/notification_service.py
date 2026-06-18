@@ -10,12 +10,16 @@ def send_push_notification(
         return
 
     requests.post(
-        "https://exp.host/--/api/v2/push/send",
-        json={
-            "to": token,
-            "title": title,
-            "body": body,
-            "sound": "default",
-            "priority": "high"
+    "https://exp.host/--/api/v2/push/send",
+    json={
+        "to": token,
+        "title": title,
+        "body": body,
+        "sound": "default",
+        "priority": "high",
+        "channelId": "default",
+        "data": {
+            "type": "ticket"
         }
-    )
+    }
+)

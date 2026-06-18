@@ -11,3 +11,5 @@ python-dotenv
 psycopg2-binary
 psycopg[binary]
 python-jose[cryptography]
+requests
+firebase-admin

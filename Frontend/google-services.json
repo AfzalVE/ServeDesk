@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "502548107750",
+    "project_id": "servedesk-328e8",
+    "storage_bucket": "servedesk-328e8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:502548107750:android:2dd0720ef9219f0fe8c627",
+        "android_client_info": {
+          "package_name": "com.servedesk.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCNi_LCrtFxenDD0EezTofhoEPNR2Vnwjg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

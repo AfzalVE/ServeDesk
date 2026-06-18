@@ -68,16 +68,20 @@ def raise_ticket(
             }
         ) 
     )
+    print("==== TICKET CREATED ====")
+    print("Employee:", employee)
+    print("Push Token:", employee.expo_push_token if employee else None)
+
     if employee and employee.expo_push_token:
+        print("Calling send_push_notification()")
+
         send_push_notification(
             employee.expo_push_token,
             "New Ticket",
-            f"{customer.full_name} raised a ticket",
-            {
-                "type": "ticket",
-                "ticket_id": ticket.id
-            }
+            f"{customer.full_name} raised a ticket"
         )
+    else:
+        print("No employee or no push token")
 
 
     return ticket

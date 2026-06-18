@@ -2,13 +2,19 @@ import { Stack, useRouter, useSegments } from "expo-router";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { View, ActivityIndicator, Platform } from "react-native";
+import {
+  View,
+  ActivityIndicator,
+  Platform,
+  Vibration,
+} from "react-native";
+
 import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
 
-// =========================
-// NOTIFICATION HANDLER
-// =========================
+// =====================================
+// GLOBAL NOTIFICATION HANDLER
+// =====================================
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -19,9 +25,9 @@ Notifications.setNotificationHandler({
   }),
 });
 
-// =========================
-// REGISTER PUSH TOKEN
-// =========================
+// =====================================
+// REGISTER DEVICE FOR PUSH
+// =====================================
 
 async function registerForPushNotificationsAsync() {
   try {
@@ -30,13 +36,29 @@ async function registerForPushNotificationsAsync() {
       return null;
     }
 
+    // ANDROID CHANNEL
     if (Platform.OS === "android") {
       await Notifications.setNotificationChannelAsync(
         "default",
         {
-          name: "default",
-          importance: Notifications.AndroidImportance.MAX,
-          vibrationPattern: [0, 250, 250, 250],
+          name: "ServeDesk Alerts",
+
+          importance:
+            Notifications.AndroidImportance.MAX,
+
+          enableVibrate: true,
+
+          vibrationPattern: [
+            0,
+            1000,
+            500,
+            1000,
+            500,
+            1000,
+          ],
+
+          sound: "default",
+
           lockscreenVisibility:
             Notifications.AndroidNotificationVisibility.PUBLIC,
         }
@@ -56,18 +78,27 @@ async function registerForPushNotificationsAsync() {
     }
 
     if (finalStatus !== "granted") {
-      console.log("Notification permission denied");
+      console.log(
+        "Notification permission denied"
+      );
       return null;
     }
 
     const token =
       await Notifications.getExpoPushTokenAsync();
 
-    console.log("Expo Push Token:", token.data);
+    console.log(
+      "Expo Push Token:",
+      token.data
+    );
 
     return token.data;
   } catch (error) {
-    console.log("Push registration error:", error);
+    console.log(
+      "Push registration error:",
+      error
+    );
+
     return null;
   }
 }
@@ -76,14 +107,15 @@ export default function RootLayout() {
   const router = useRouter();
   const segments = useSegments();
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] =
+    useState(true);
 
-  // =========================
+  // =====================================
   // PUSH TOKEN REGISTRATION
-  // =========================
+  // =====================================
 
   useEffect(() => {
-    const initNotifications = async () => {
+    const initialize = async () => {
       const token =
         await registerForPushNotificationsAsync();
 
@@ -92,22 +124,60 @@ export default function RootLayout() {
           "expoPushToken",
           token
         );
+
+        console.log(
+          "Push token saved locally"
+        );
       }
     };
 
-    initNotifications();
+    initialize();
   }, []);
 
-  // =========================
-  // NOTIFICATION CLICK
-  // =========================
+  // =====================================
+  // FOREGROUND NOTIFICATION LISTENER
+  // =====================================
+const vibrateForTicket = () => {
+  Vibration.vibrate(1000);
+
+  setTimeout(() => {
+    Vibration.vibrate(1000);
+  }, 1500);
+
+  setTimeout(() => {
+    Vibration.vibrate(1000);
+  }, 3000);
+};
+  useEffect(() => {
+    const notificationListener =
+      Notifications.addNotificationReceivedListener(
+        (notification) => {
+          console.log(
+            "Foreground notification:",
+            notification
+          );
+
+          // Vibrate while app is open
+         vibrateForTicket();
+        }
+      );
+
+    return () => {
+      notificationListener.remove();
+    };
+  }, []);
+
+  // =====================================
+  // NOTIFICATION TAP HANDLER
+  // =====================================
 
   useEffect(() => {
-    const subscription =
+    const responseListener =
       Notifications.addNotificationResponseReceivedListener(
         (response) => {
           const data =
-            response.notification.request.content.data;
+            response.notification.request.content
+              .data;
 
           console.log(
             "Notification tapped:",
@@ -115,21 +185,27 @@ export default function RootLayout() {
           );
 
           if (data?.type === "ticket") {
-            router.push("/(employee)/home");
+            router.push(
+              "/(employee)/home"
+            );
           }
 
           if (data?.type === "order") {
-            router.push("/(employee)/home");
+            router.push(
+              "/(employee)/home"
+            );
           }
         }
       );
 
-    return () => subscription.remove();
+    return () => {
+      responseListener.remove();
+    };
   }, []);
 
-  // =========================
+  // =====================================
   // AUTH CHECK
-  // =========================
+  // =====================================
 
   useEffect(() => {
     checkAuth();
@@ -149,10 +225,13 @@ export default function RootLayout() {
 
       const inAuthGroup =
         segments[0] === "(auth)";
+
       const inCustomer =
         segments[0] === "(customer)";
+
       const inEmployee =
         segments[0] === "(employee)";
+
       const inAdmin =
         segments[0] === "(admin)";
 
@@ -165,21 +244,27 @@ export default function RootLayout() {
         user.user_type === "CUSTOMER" &&
         !inCustomer
       ) {
-        router.replace("/(customer)/home");
+        router.replace(
+          "/(customer)/home"
+        );
       }
 
       if (
         user.user_type === "EMPLOYEE" &&
         !inEmployee
       ) {
-        router.replace("/(employee)/home");
+        router.replace(
+          "/(employee)/home"
+        );
       }
 
       if (
         user.user_type === "ADMIN" &&
         !inAdmin
       ) {
-        router.replace("/(admin)/dashboard");
+        router.replace(
+          "/(admin)/dashboard"
+        );
       }
 
       setLoading(false);
@@ -189,9 +274,9 @@ export default function RootLayout() {
     }
   };
 
-  // =========================
-  // LOADER
-  // =========================
+  // =====================================
+  // LOADING SCREEN
+  // =====================================
 
   if (loading) {
     return (
@@ -204,16 +289,16 @@ export default function RootLayout() {
         }}
       >
         <ActivityIndicator
-          color="#2D8CFF"
           size="large"
+          color="#2D8CFF"
         />
       </View>
     );
   }
 
-  // =========================
+  // =====================================
   // APP
-  // =========================
+  // =====================================
 
   return (
     <SafeAreaProvider>
