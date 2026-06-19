@@ -14,6 +14,8 @@ import {
   Alert,
   ScrollView,
   RefreshControl,
+  Modal,
+  TextInput,
 } from "react-native";
 import { useColorScheme } from "react-native";
 import {
@@ -23,6 +25,8 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getAuthHeaders } from "@/lib/auth";
+import { API_URL } from "../../config/api";
 
 
 import {
@@ -52,6 +56,14 @@ export default function Profile() {
 
   const [refreshing, setRefreshing] =
     useState(false);
+  const [editProfileVisible, setEditProfileVisible] =
+    useState(false);
+
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editEmployeeId, setEditEmployeeId] =
+    useState("");
+
 
   useEffect(() => {
     loadUser();
@@ -88,6 +100,7 @@ export default function Profile() {
       setRefreshing(false);
     }
   };
+
   const deviceTheme = useColorScheme();
 
   const [theme, setTheme] =
@@ -147,6 +160,89 @@ export default function Profile() {
     );
   };
 
+  const openEditProfile = () => {
+    setEditName(user?.name || "");
+    setEditEmail(user?.email || "");
+    setEditEmployeeId(user?.employee_id || "");
+
+    setEditProfileVisible(true);
+  };
+
+
+const handleSaveProfile = async () => {
+  try {
+    if (!editName.trim()) {
+      Alert.alert(
+        "Validation",
+        "Name is required"
+      );
+      return;
+    }
+
+    if (!editEmail.trim()) {
+      Alert.alert(
+        "Validation",
+        "Email is required"
+      );
+      return;
+    }
+
+    const response = await fetch(
+      `${API_URL}/update-profile`,
+      {
+        method: "PUT",
+        headers: await getAuthHeaders(),
+        body: JSON.stringify({
+          full_name: editName.trim(),
+          email: editEmail.trim(),
+          employee_id:
+            editEmployeeId.trim() || null,
+        }),
+      }
+    );
+
+    const data =
+      await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data?.detail ||
+          data?.message ||
+          "Failed to update profile"
+      );
+    }
+
+    setUser((prev) =>
+      prev
+        ? {
+            ...prev,
+            name: editName.trim(),
+            email: editEmail.trim(),
+            employee_id:
+              editEmployeeId.trim(),
+          }
+        : prev
+    );
+
+    Alert.alert(
+      "Success",
+      "Profile updated successfully"
+    );
+
+    setEditProfileVisible(false);
+  } catch (error: any) {
+    console.log(
+      "Update Profile Error:",
+      error
+    );
+
+    Alert.alert(
+      "Error",
+      error?.message ||
+        "Failed to update profile"
+    );
+  }
+};
   if (loading) {
     return (
       <View
@@ -167,433 +263,584 @@ export default function Profile() {
   }
 
   return (
-    <ScrollView
-      style={[
-        styles.container,
-        {
-          backgroundColor:
-            currentTheme.background,
-        },
-      ]}
-      contentContainerStyle={{
-        padding: 15,
-        paddingBottom:
-          insets.bottom + 120,
-        flexGrow: 1,
-      }}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          tintColor="#2D8CFF"
-        />
-      }
-    >
-      {/* Profile Header */}
-
-      <View
+    <View style={{ flex: 1 }}>
+      <ScrollView
         style={[
-          styles.profileCard,
+          styles.container,
           {
             backgroundColor:
-              currentTheme.card,
+              currentTheme.background,
           },
         ]}
+        contentContainerStyle={{
+          padding: 15,
+          paddingBottom:
+            insets.bottom + 120,
+          flexGrow: 1,
+        }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#2D8CFF"
+          />
+        }
       >
-        <TouchableOpacity
+        {/* Profile Header */}
+
+        <View
           style={[
-            styles.settingsButton,
+            styles.profileCard,
             {
               backgroundColor:
-                currentTheme.border,
+                currentTheme.card,
             },
           ]}
-          onPress={() =>
-            router.push("/settings")
-          }
         >
-          <Text
+          <TouchableOpacity
             style={[
-              styles.settingsText,
+              styles.settingsButton,
               {
-                color:
+                backgroundColor:
+                  currentTheme.border,
+              },
+            ]}
+            onPress={() =>
+              router.push("/settings")
+            }
+          >
+            <Text
+              style={[
+                styles.settingsText,
+                {
+                  color:
+                    currentTheme.primary,
+                },
+              ]}
+            >
+              Settings
+            </Text>
+          </TouchableOpacity>
+          <View
+            style={[
+              styles.avatar,
+              {
+                backgroundColor:
                   currentTheme.primary,
               },
             ]}
           >
-            Settings
-          </Text>
-        </TouchableOpacity>
-        <View
-          style={[
-            styles.avatar,
-            {
-              backgroundColor:
-                currentTheme.primary,
-            },
-          ]}
-        >
-          <Text
-            style={styles.avatarText}
-          >
-            {user?.name
-              ?.charAt(0)
-              ?.toUpperCase() || "U"}
-          </Text>
-        </View>
+            <Text
+              style={styles.avatarText}
+            >
+              {user?.name
+                ?.charAt(0)
+                ?.toUpperCase() || "U"}
+            </Text>
+          </View>
 
-        <Text
-          style={[
-            styles.name,
-            {
-              color:
-                currentTheme.text,
-            },
-          ]}
-        >
-          {user?.name}
-        </Text>
-        <View
-          style={[
-            styles.roleBadge,
-            {
-              backgroundColor:
-                currentTheme.border,
-            },
-          ]}
-        >
           <Text
             style={[
-              styles.roleText,
+              styles.name,
               {
                 color:
-                  currentTheme.primary,
+                  currentTheme.text,
               },
             ]}
           >
-            {user?.user_type}
+            {user?.name}
           </Text>
+          <View
+            style={[
+              styles.roleBadge,
+              {
+                backgroundColor:
+                  currentTheme.border,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.roleText,
+                {
+                  color:
+                    currentTheme.primary,
+                },
+              ]}
+            >
+              {user?.user_type}
+            </Text>
+          </View>
         </View>
-      </View>
 
-      {/* Account Info */}
+        {/* Account Info */}
 
-      <View style={styles.section}>
-        <Text
-          style={[
-            styles.sectionTitle,
-            {
-              color: currentTheme.secondaryText,
-            },
-          ]}
-        >
-          ACCOUNT INFORMATION
-        </Text>
-
-        <View
-          style={[
-            styles.infoCard,
-            {
-              backgroundColor: currentTheme.card,
-            },
-          ]}
-        >
+        <View style={styles.section}>
           <Text
             style={[
-              styles.label,
+              styles.sectionTitle,
               {
                 color: currentTheme.secondaryText,
               },
             ]}
           >
-            Employee ID
+            ACCOUNT INFORMATION
           </Text>
 
-          <Text
+          <View
             style={[
-              styles.value,
+              styles.infoCard,
               {
-                color: currentTheme.text,
+                backgroundColor: currentTheme.card,
               },
             ]}
           >
-            {user?.employee_id || "Not Assigned"}
-          </Text>
+            <Text
+              style={[
+                styles.label,
+                {
+                  color: currentTheme.secondaryText,
+                },
+              ]}
+            >
+              Employee ID
+            </Text>
+
+            <Text
+              style={[
+                styles.value,
+                {
+                  color: currentTheme.text,
+                },
+              ]}
+            >
+              {user?.employee_id || "Not Assigned"}
+            </Text>
+          </View>
+
+          <View
+            style={[
+              styles.infoCard,
+              {
+                backgroundColor: currentTheme.card,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.label,
+                {
+                  color: currentTheme.secondaryText,
+                },
+              ]}
+            >
+              Full Name
+            </Text>
+
+            <Text
+              style={[
+                styles.value,
+                {
+                  color: currentTheme.text,
+                },
+              ]}
+            >
+              {user?.name || "-"}
+            </Text>
+          </View>
+
+          <View
+            style={[
+              styles.infoCard,
+              {
+                backgroundColor: currentTheme.card,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.label,
+                {
+                  color: currentTheme.secondaryText,
+                },
+              ]}
+            >
+              Email
+            </Text>
+
+            <Text
+              style={[
+                styles.value,
+                {
+                  color: currentTheme.text,
+                },
+              ]}
+            >
+              {user?.email || "-"}
+            </Text>
+          </View>
+
+          <View
+            style={[
+              styles.infoCard,
+              {
+                backgroundColor: currentTheme.card,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.label,
+                {
+                  color: currentTheme.secondaryText,
+                },
+              ]}
+            >
+              User Type
+            </Text>
+
+            <Text
+              style={[
+                styles.value,
+                {
+                  color: currentTheme.text,
+                },
+              ]}
+            >
+              {user?.user_type || "-"}
+            </Text>
+          </View>
+
+          <View
+            style={[
+              styles.infoCard,
+              {
+                backgroundColor: currentTheme.card,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.label,
+                {
+                  color: currentTheme.secondaryText,
+                },
+              ]}
+            >
+              Status
+            </Text>
+
+            <Text
+              style={[
+                styles.value,
+                {
+                  color: user?.is_active
+                    ? currentTheme.primary
+                    : currentTheme.danger,
+                },
+              ]}
+            >
+              {user?.is_active ? "Active" : "Offline"}
+            </Text>
+          </View>
+
+          <View
+            style={[
+              styles.infoCard,
+              {
+                backgroundColor: currentTheme.card,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.label,
+                {
+                  color: currentTheme.secondaryText,
+                },
+              ]}
+            >
+              Last Login
+            </Text>
+
+            <Text
+              style={[
+                styles.value,
+                {
+                  color: currentTheme.text,
+                },
+              ]}
+            >
+              {user?.last_login
+                ? new Date(
+                  user.last_login
+                ).toLocaleString()
+                : "-"}
+            </Text>
+          </View>
+
+          <View
+            style={[
+              styles.infoCard,
+              {
+                backgroundColor: currentTheme.card,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.label,
+                {
+                  color: currentTheme.secondaryText,
+                },
+              ]}
+            >
+              Member Since
+            </Text>
+
+            <Text
+              style={[
+                styles.value,
+                {
+                  color: currentTheme.text,
+                },
+              ]}
+            >
+              {user?.created_at
+                ? new Date(
+                  user.created_at
+                ).toLocaleDateString()
+                : "-"}
+            </Text>
+          </View>
         </View>
 
-        <View
-          style={[
-            styles.infoCard,
-            {
-              backgroundColor: currentTheme.card,
-            },
-          ]}
-        >
+        {/* Actions */}
+
+        <View style={styles.section}>
           <Text
             style={[
-              styles.label,
+              styles.sectionTitle,
               {
                 color: currentTheme.secondaryText,
               },
             ]}
           >
-            Full Name
+            ACTIONS
           </Text>
 
-          <Text
+          <TouchableOpacity
             style={[
-              styles.value,
+              styles.actionButton,
               {
-                color: currentTheme.text,
+                backgroundColor: currentTheme.card,
               },
             ]}
+            onPress={openEditProfile}
           >
-            {user?.name || "-"}
-          </Text>
+            <Text
+              style={[
+                styles.actionText,
+                {
+                  color: currentTheme.text,
+                },
+              ]}
+            >
+              ✏️ Edit Profile
+            </Text>
+          </TouchableOpacity>
+
+
+          <TouchableOpacity
+            style={[
+              styles.logoutButton,
+              {
+                backgroundColor: currentTheme.danger,
+              },
+            ]}
+            onPress={handleLogout}
+          >
+            <Text
+              style={[
+                styles.logoutText,
+                {
+                  color: "#FFFFFF",
+                },
+              ]}
+            >
+              🚪 Logout
+            </Text>
+          </TouchableOpacity>
         </View>
-
-        <View
-          style={[
-            styles.infoCard,
-            {
-              backgroundColor: currentTheme.card,
-            },
-          ]}
-        >
-          <Text
+      </ScrollView>
+      <Modal
+        visible={editProfileVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() =>
+          setEditProfileVisible(false)
+        }
+      >
+        <View style={styles.modalOverlay}>
+          <View
             style={[
-              styles.label,
+              styles.modalContainer,
               {
-                color: currentTheme.secondaryText,
+                backgroundColor:
+                  currentTheme.card,
               },
             ]}
           >
-            Email
-          </Text>
+            <Text
+              style={[
+                styles.modalTitle,
+                {
+                  color: currentTheme.text,
+                },
+              ]}
+            >
+              Edit Profile
+            </Text>
 
-          <Text
-            style={[
-              styles.value,
-              {
-                color: currentTheme.text,
-              },
-            ]}
-          >
-            {user?.email || "-"}
-          </Text>
+            {/* Employee ID */}
+            <Text
+              style={[
+                styles.inputLabel,
+                {
+                  color:
+                    currentTheme.secondaryText,
+                },
+              ]}
+            >
+              Employee ID
+            </Text>
+
+            <TextInput
+              value={editEmployeeId}
+              onChangeText={setEditEmployeeId}
+              placeholder="Enter employee ID"
+              placeholderTextColor={
+                currentTheme.secondaryText
+              }
+              style={[
+                styles.input,
+                {
+                  color: currentTheme.text,
+                  borderColor:
+                    currentTheme.border,
+                },
+              ]}
+            />
+
+            {/* Full Name */}
+            <Text
+              style={[
+                styles.inputLabel,
+                {
+                  color:
+                    currentTheme.secondaryText,
+                },
+              ]}
+            >
+              Full Name
+            </Text>
+
+            <TextInput
+              value={editName}
+              onChangeText={setEditName}
+              placeholder="Enter full name"
+              placeholderTextColor={
+                currentTheme.secondaryText
+              }
+              style={[
+                styles.input,
+                {
+                  color: currentTheme.text,
+                  borderColor:
+                    currentTheme.border,
+                },
+              ]}
+            />
+
+            {/* Email */}
+            <Text
+              style={[
+                styles.inputLabel,
+                {
+                  color:
+                    currentTheme.secondaryText,
+                },
+              ]}
+            >
+              Email Address
+            </Text>
+
+            <TextInput
+              value={editEmail}
+              onChangeText={setEditEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              placeholder="Enter email address"
+              placeholderTextColor={
+                currentTheme.secondaryText
+              }
+              style={[
+                styles.input,
+                {
+                  color: currentTheme.text,
+                  borderColor:
+                    currentTheme.border,
+                },
+              ]}
+            />
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[
+                  styles.cancelButton,
+                  {
+                    backgroundColor:
+                      currentTheme.border,
+                  },
+                ]}
+                onPress={() =>
+                  setEditProfileVisible(false)
+                }
+              >
+                <Text
+                  style={{
+                    color: currentTheme.text,
+                    fontWeight: "700",
+                  }}
+                >
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.saveButton,
+                  {
+                    backgroundColor:
+                      currentTheme.primary,
+                  },
+                ]}
+                onPress={handleSaveProfile}
+              >
+                <Text
+                  style={{
+                    color: "#FFF",
+                    fontWeight: "700",
+                  }}
+                >
+                  Save Changes
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
-
-        <View
-          style={[
-            styles.infoCard,
-            {
-              backgroundColor: currentTheme.card,
-            },
-          ]}
-        >
-          <Text
-            style={[
-              styles.label,
-              {
-                color: currentTheme.secondaryText,
-              },
-            ]}
-          >
-            User Type
-          </Text>
-
-          <Text
-            style={[
-              styles.value,
-              {
-                color: currentTheme.text,
-              },
-            ]}
-          >
-            {user?.user_type || "-"}
-          </Text>
-        </View>
-
-        <View
-          style={[
-            styles.infoCard,
-            {
-              backgroundColor: currentTheme.card,
-            },
-          ]}
-        >
-          <Text
-            style={[
-              styles.label,
-              {
-                color: currentTheme.secondaryText,
-              },
-            ]}
-          >
-            Status
-          </Text>
-
-          <Text
-            style={[
-              styles.value,
-              {
-                color: user?.is_active
-                  ? currentTheme.primary
-                  : currentTheme.danger,
-              },
-            ]}
-          >
-            {user?.is_active ? "Active" : "Offline"}
-          </Text>
-        </View>
-
-        <View
-          style={[
-            styles.infoCard,
-            {
-              backgroundColor: currentTheme.card,
-            },
-          ]}
-        >
-          <Text
-            style={[
-              styles.label,
-              {
-                color: currentTheme.secondaryText,
-              },
-            ]}
-          >
-            Last Login
-          </Text>
-
-          <Text
-            style={[
-              styles.value,
-              {
-                color: currentTheme.text,
-              },
-            ]}
-          >
-            {user?.last_login
-              ? new Date(
-                user.last_login
-              ).toLocaleString()
-              : "-"}
-          </Text>
-        </View>
-
-        <View
-          style={[
-            styles.infoCard,
-            {
-              backgroundColor: currentTheme.card,
-            },
-          ]}
-        >
-          <Text
-            style={[
-              styles.label,
-              {
-                color: currentTheme.secondaryText,
-              },
-            ]}
-          >
-            Member Since
-          </Text>
-
-          <Text
-            style={[
-              styles.value,
-              {
-                color: currentTheme.text,
-              },
-            ]}
-          >
-            {user?.created_at
-              ? new Date(
-                user.created_at
-              ).toLocaleDateString()
-              : "-"}
-          </Text>
-        </View>
-      </View>
-
-      {/* Actions */}
-
-      <View style={styles.section}>
-        <Text
-          style={[
-            styles.sectionTitle,
-            {
-              color: currentTheme.secondaryText,
-            },
-          ]}
-        >
-          ACTIONS
-        </Text>
-
-        <TouchableOpacity
-          style={[
-            styles.actionButton,
-            {
-              backgroundColor: currentTheme.card,
-            },
-          ]}
-        >
-          <Text
-            style={[
-              styles.actionText,
-              {
-                color: currentTheme.text,
-              },
-            ]}
-          >
-            ✏️ Edit Profile
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.actionButton,
-            {
-              backgroundColor: currentTheme.card,
-            },
-          ]}
-        >
-          <Text
-            style={[
-              styles.actionText,
-              {
-                color: currentTheme.text,
-              },
-            ]}
-          >
-            🔒 Change Password
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.logoutButton,
-            {
-              backgroundColor: currentTheme.danger,
-            },
-          ]}
-          onPress={handleLogout}
-        >
-          <Text
-            style={[
-              styles.logoutText,
-              {
-                color: "#FFFFFF",
-              },
-            ]}
-          >
-            🚪 Logout
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+      </Modal>
+    </View>
   );
 }
 
@@ -624,6 +871,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  inputLabel: {
+  fontSize: 14,
+  fontWeight: "600",
+  marginBottom: 6,
+  marginLeft: 2,
+},
 
   avatarText: {
     color: "#FFF",
@@ -720,5 +973,54 @@ const styles = StyleSheet.create({
     color: "#2D8CFF",
     fontWeight: "700",
     fontSize: 13,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    padding: 20,
+  },
+
+  modalContainer: {
+    borderRadius: 20,
+    padding: 20,
+  },
+
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    marginBottom: 20,
+    textAlign: "center",
+  },
+
+  input: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 15,
+    fontSize: 16,
+  },
+
+  modalActions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 10,
+  },
+
+  cancelButton: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 12,
+    alignItems: "center",
+    marginRight: 8,
+  },
+
+  saveButton: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 12,
+    alignItems: "center",
+    marginLeft: 8,
   },
 });

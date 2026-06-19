@@ -12,6 +12,9 @@ import {
     Alert,
     StyleSheet,
     useColorScheme,
+    Modal,
+    TextInput,
+    ActivityIndicator
 } from "react-native";
 
 import {
@@ -25,6 +28,7 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { useRouter } from "expo-router";
+import { API_URL } from "../config/api";
 
 import {
     darkTheme,
@@ -62,6 +66,21 @@ export default function SettingsScreen() {
     const [vibrationEnabled,
         setVibrationEnabled] =
         useState(true);
+
+    const [changePasswordVisible, setChangePasswordVisible] =
+        useState(false);
+
+    const [currentPassword, setCurrentPassword] =
+        useState("");
+
+    const [newPassword, setNewPassword] =
+        useState("");
+
+    const [confirmPassword, setConfirmPassword] =
+        useState("");
+
+    const [passwordLoading, setPasswordLoading] =
+        useState(false);
 
     const [user,
         setUser] =
@@ -195,7 +214,95 @@ export default function SettingsScreen() {
                 value
             );
         };
+    const handleChangePassword = async () => {
+        if (
+            !currentPassword ||
+            !newPassword ||
+            !confirmPassword
+        ) {
+            Alert.alert(
+                "Validation",
+                "Please fill all fields"
+            );
+            return;
+        }
 
+        if (
+            newPassword !== confirmPassword
+        ) {
+            Alert.alert(
+                "Validation",
+                "Passwords do not match"
+            );
+            return;
+        }
+
+        if (newPassword.length < 1) {
+            Alert.alert(
+                "Validation",
+                "Password must be at least 6 characters"
+            );
+            return;
+        }
+
+        try {
+            setPasswordLoading(true);
+
+            const token =
+                await AsyncStorage.getItem(
+                    "access_token"
+                );
+
+            const response = await fetch(
+                `${API_URL}/change-password`,
+                {
+                    method: "PUT",
+                    headers: {
+                        "Content-Type":
+                            "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                        current_password:
+                            currentPassword,
+                        new_password:
+                            newPassword,
+                    }),
+                }
+            );
+
+            const data =
+                await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.detail ||
+                    data.message ||
+                    "Failed to change password"
+                );
+            }
+
+            Alert.alert(
+                "Success",
+                data.message ||
+                "Password changed successfully"
+            );
+
+            setCurrentPassword("");
+            setNewPassword("");
+            setConfirmPassword("");
+
+            setChangePasswordVisible(false);
+        } catch (error: any) {
+            Alert.alert(
+                "Error",
+                error?.message ||
+                "Failed to change password"
+            );
+        } finally {
+            setPasswordLoading(false);
+        }
+    };
     const saveLanguage =
         async (
             value: string
@@ -243,690 +350,858 @@ export default function SettingsScreen() {
             ]
         );
     };
-const SettingOption = ({
-  title,
-  selected,
-  onPress,
-}: any) => (
-  <TouchableOpacity
-    onPress={onPress}
-    activeOpacity={0.7}
-    style={styles.option}
-  >
-    <View style={styles.optionLeft}>
-      <View style={styles.optionTextContainer}>
-        <Text
-          style={[
-            styles.optionTitle,
-            {
-              color: currentTheme.text,
-            },
-          ]}
+    const SettingOption = ({
+        title,
+        selected,
+        onPress,
+    }: any) => (
+        <TouchableOpacity
+            onPress={onPress}
+            activeOpacity={0.7}
+            style={styles.option}
         >
-          {title}
-        </Text>
-      </View>
-    </View>
+            <View style={styles.optionLeft}>
+                <View style={styles.optionTextContainer}>
+                    <Text
+                        style={[
+                            styles.optionTitle,
+                            {
+                                color: currentTheme.text,
+                            },
+                        ]}
+                    >
+                        {title}
+                    </Text>
+                </View>
+            </View>
 
-    {selected ? (
-      <Ionicons
-        name="checkmark-circle"
-        size={22}
-        color={currentTheme.primary}
-      />
-    ) : (
-      <Ionicons
-        name="chevron-forward"
-        size={18}
-        color={currentTheme.secondaryText}
-      />
-    )}
-  </TouchableOpacity>
-);
+            {selected ? (
+                <Ionicons
+                    name="checkmark-circle"
+                    size={22}
+                    color={currentTheme.primary}
+                />
+            ) : (
+                <Ionicons
+                    name="chevron-forward"
+                    size={18}
+                    color={currentTheme.secondaryText}
+                />
+            )}
+        </TouchableOpacity>
+    );
 
-const SettingSwitch = ({
-  title,
-  value,
-  onChange,
-  disabled = false,
-}: any) => (
-  <View
-    style={[
-      styles.option,
-      disabled && {
-        opacity: 0.5,
-      },
-    ]}
-  >
-
-    <View style={styles.optionLeft}>
-
-      <View style={styles.optionTextContainer}>
-
-        <Text
-          style={[
-            styles.optionTitle,
-            {
-              color: currentTheme.text,
-            },
-          ]}
-        >
-          {title}
-        </Text>
-
-      </View>
-
-    </View>
-
-
-    <Switch
-      value={value}
-      disabled={disabled}
-      onValueChange={onChange}
-
-      trackColor={{
-        false: "#767577",
-        true: currentTheme.primary,
-      }}
-
-      thumbColor="#FFFFFF"
-    />
-
-
-  </View>
-);
-    return (
-        <SafeAreaView
+    const SettingSwitch = ({
+        title,
+        value,
+        onChange,
+        disabled = false,
+    }: any) => (
+        <View
             style={[
-                styles.container,
-                {
-                    backgroundColor:
-                        currentTheme.background,
+                styles.option,
+                disabled && {
+                    opacity: 0.5,
                 },
             ]}
-            edges={["top"]}
         >
-            <ScrollView
-                showsVerticalScrollIndicator={
-                    false
-                }
-                contentContainerStyle={
-                    styles.content
+
+            <View style={styles.optionLeft}>
+
+                <View style={styles.optionTextContainer}>
+
+                    <Text
+                        style={[
+                            styles.optionTitle,
+                            {
+                                color: currentTheme.text,
+                            },
+                        ]}
+                    >
+                        {title}
+                    </Text>
+
+                </View>
+
+            </View>
+
+
+            <Switch
+                value={value}
+                disabled={disabled}
+                onValueChange={onChange}
+
+                trackColor={{
+                    false: "#767577",
+                    true: currentTheme.primary,
+                }}
+
+                thumbColor="#FFFFFF"
+            />
+
+
+        </View>
+    );
+    return (
+        <View style={{ flex: 1 }}>
+            <SafeAreaView
+                style={[
+                    styles.container,
+                    {
+                        backgroundColor:
+                            currentTheme.background,
+                    },
+                ]}
+                edges={["top"]}
+            >
+                <ScrollView
+                    showsVerticalScrollIndicator={
+                        false
+                    }
+                    contentContainerStyle={
+                        styles.content
+                    }
+                >
+                    {/* HEADER */}
+
+                    <View
+                        style={styles.headerContainer}
+                    >
+                        <TouchableOpacity
+                            onPress={() =>
+                                router.back()
+                            }
+                            style={[
+                                styles.backButton,
+                                {
+                                    backgroundColor:
+                                        currentTheme.card,
+                                },
+                            ]}
+                        >
+                            <Ionicons
+                                name="chevron-back"
+                                size={24}
+                                color={
+                                    currentTheme.text
+                                }
+                            />
+                        </TouchableOpacity>
+
+                        <View
+                            style={
+                                styles.headerTextContainer
+                            }
+                        >
+                            <Text
+                                style={[
+                                    styles.headerTitle,
+                                    {
+                                        color:
+                                            currentTheme.text,
+                                    },
+                                ]}
+                            >
+                                Settings
+                            </Text>
+
+                            <Text
+                                style={[
+                                    styles.headerSubtitle,
+                                    {
+                                        color:
+                                            currentTheme.secondaryText,
+                                    },
+                                ]}
+                            >
+                                Manage your preferences
+                            </Text>
+                        </View>
+                    </View>
+
+                    {/* PROFILE */}
+
+                    <View
+                        style={[
+                            styles.profileCard,
+                            {
+                                backgroundColor:
+                                    currentTheme.card,
+                            },
+                        ]}
+                    >
+                        <View
+                            style={[
+                                styles.avatar,
+                                {
+                                    backgroundColor:
+                                        currentTheme.primary,
+                                },
+                            ]}
+                        >
+                            <Text
+                                style={styles.avatarText}
+                            >
+                                {user?.full_name
+                                    ?.charAt(0)
+                                    ?.toUpperCase() ||
+                                    "U"}
+                            </Text>
+                        </View>
+
+                        <View
+                            style={styles.profileInfo}
+                        >
+                            <Text
+                                style={[
+                                    styles.userName,
+                                    {
+                                        color:
+                                            currentTheme.text,
+                                    },
+                                ]}
+                            >
+                                {user?.full_name ||
+                                    "User"}
+                            </Text>
+
+                            <Text
+                                style={[
+                                    styles.userRole,
+                                    {
+                                        color:
+                                            currentTheme.secondaryText,
+                                    },
+                                ]}
+                            >
+                                {user?.user_type}
+                            </Text>
+                        </View>
+                    </View>
+
+                    {/* APPEARANCE */}
+
+                    <View style={styles.section}>
+                        <Text
+                            style={[
+                                styles.sectionTitle,
+                                {
+                                    color:
+                                        currentTheme.primary,
+                                },
+                            ]}
+                        >
+                            Appearance
+                        </Text>
+
+                        <View
+                            style={[
+                                styles.card,
+                                {
+                                    backgroundColor:
+                                        currentTheme.card,
+                                },
+                            ]}
+                        >
+                            <SettingOption
+                                title="Dark Theme"
+                                selected={
+                                    theme === "dark"
+                                }
+                                onPress={() =>
+                                    saveTheme("dark")
+                                }
+                            />
+
+                            <View
+                                style={[
+                                    styles.divider,
+                                    {
+                                        backgroundColor:
+                                            currentTheme.border,
+                                    },
+                                ]}
+                            />
+
+                            <SettingOption
+                                title="Light Theme"
+                                selected={
+                                    theme === "light"
+                                }
+                                onPress={() =>
+                                    saveTheme(
+                                        "light"
+                                    )
+                                }
+                            />
+
+                            <View
+                                style={[
+                                    styles.divider,
+                                    {
+                                        backgroundColor:
+                                            currentTheme.border,
+                                    },
+                                ]}
+                            />
+
+                            <SettingOption
+                                title="System Theme"
+                                selected={
+                                    theme ===
+                                    "system"
+                                }
+                                onPress={() =>
+                                    saveTheme(
+                                        "system"
+                                    )
+                                }
+                            />
+                        </View>
+                    </View>
+
+                    {/* LANGUAGE */}
+
+                    <View style={styles.section}>
+                        <Text
+                            style={[
+                                styles.sectionTitle,
+                                {
+                                    color:
+                                        currentTheme.primary,
+                                },
+                            ]}
+                        >
+                            Language
+                        </Text>
+
+                        <View
+                            style={[
+                                styles.card,
+                                {
+                                    backgroundColor:
+                                        currentTheme.card,
+                                },
+                            ]}
+                        >
+                            <SettingOption
+                                title="English"
+                                selected={
+                                    language === "en"
+                                }
+                                disabled={true}
+                                onPress={() =>
+                                    saveLanguage("en")
+                                }
+                            />
+
+                            <View
+                                style={[
+                                    styles.divider,
+                                    {
+                                        backgroundColor:
+                                            currentTheme.border,
+                                    },
+                                ]}
+                            />
+
+                            <SettingOption
+                                title="Hindi"
+                                selected={
+                                    language === "hi"
+                                }
+                                disabled={true}
+                                onPress={() =>
+                                    saveLanguage("hi")
+                                }
+                            />
+
+                            <View
+                                style={[
+                                    styles.divider,
+                                    {
+                                        backgroundColor:
+                                            currentTheme.border,
+                                    },
+                                ]}
+                            />
+
+                            <SettingOption
+                                title="Bengali"
+                                 disabled={true}
+                                selected={
+                                    language === "bn"
+                                }
+                                onPress={() =>
+                                    saveLanguage("bn")
+                                }
+                            />
+                        </View>
+                    </View>
+
+                    {/* NOTIFICATIONS */}
+
+                    <View style={styles.section}>
+                        <Text
+                            style={[
+                                styles.sectionTitle,
+                                {
+                                    color:
+                                        currentTheme.primary,
+                                },
+                            ]}
+                        >
+                            Notifications
+                        </Text>
+
+                        <View
+                            style={[
+                                styles.card,
+                                {
+                                    backgroundColor:
+                                        currentTheme.card,
+                                },
+                            ]}
+                        >
+                            <SettingSwitch
+                                title="Ticket Alerts"
+                                value={
+                                    ticketNotifications
+                                }
+                                disabled={true}
+                                onChange={async (
+                                    value: boolean
+                                ) => {
+                                    setTicketNotifications(
+                                        value
+                                    );
+
+                                    await saveToggle(
+                                        "ticketNotifications",
+                                        value
+                                    );
+                                }}
+                            />
+
+                            <View
+                                style={[
+                                    styles.divider,
+                                    {
+                                        backgroundColor:
+                                            currentTheme.border,
+                                    },
+                                ]}
+                            />
+
+                            <SettingSwitch
+                                title="Order Alerts"
+                                value={
+                                    orderNotifications
+                                }
+                                disabled={true}
+                                onChange={async (
+                                    value: boolean
+                                ) => {
+                                    setOrderNotifications(
+                                        value
+                                    );
+
+                                    await saveToggle(
+                                        "orderNotifications",
+                                        value
+                                    );
+                                }}
+                            />
+
+                            <View
+                                style={[
+                                    styles.divider,
+                                    {
+                                        backgroundColor:
+                                            currentTheme.border,
+                                    },
+                                ]}
+                            />
+
+                            <SettingSwitch
+                                title="Announcements"
+                                value={
+                                    announcementNotifications
+                                }
+                                disabled={true}
+                                onChange={async (
+                                    value: boolean
+                                ) => {
+                                    setAnnouncementNotifications(
+                                        value
+                                    );
+
+                                    await saveToggle(
+                                        "announcementNotifications",
+                                        value
+                                    );
+                                }}
+                            />
+
+                            <View
+                                style={[
+                                    styles.divider,
+                                    {
+                                        backgroundColor:
+                                            currentTheme.border,
+                                    },
+                                ]}
+                            />
+
+                            <SettingSwitch
+                                title="Sound"
+                                value={
+                                    soundEnabled
+                                }
+                                disabled={true}
+                                onChange={async (
+                                    value: boolean
+                                ) => {
+                                    setSoundEnabled(
+                                        value
+                                    );
+
+                                    await saveToggle(
+                                        "soundEnabled",
+                                        value
+                                    );
+                                }}
+                            />
+
+                            <View
+                                style={[
+                                    styles.divider,
+                                    {
+                                        backgroundColor:
+                                            currentTheme.border,
+                                    },
+                                ]}
+                            />
+
+                            <SettingSwitch
+                                title="Vibration"
+                                value={
+                                    vibrationEnabled
+                                }
+                                disabled={true}
+                                onChange={async (
+                                    value: boolean
+                                ) => {
+                                    setVibrationEnabled(
+                                        value
+                                    );
+
+                                    await saveToggle(
+                                        "vibrationEnabled",
+                                        value
+                                    );
+                                }}
+                            />
+                        </View>
+                    </View>
+
+                    {/* ACCOUNT */}
+
+                    <View style={styles.section}>
+                        <Text
+                            style={[
+                                styles.sectionTitle,
+                                {
+                                    color:
+                                        currentTheme.primary,
+                                },
+                            ]}
+                        >
+                            Account
+                        </Text>
+
+                        <View
+                            style={[
+                                styles.card,
+                                {
+                                    backgroundColor:
+                                        currentTheme.card,
+                                },
+                            ]}
+                        >
+                            
+
+                            <SettingOption
+                                title="Change Password"
+                                onPress={() =>
+                                    setChangePasswordVisible(true)
+                                }
+                            />
+
+                            <View
+                                style={[
+                                    styles.divider,
+                                    {
+                                        backgroundColor:
+                                            currentTheme.border,
+                                    },
+                                ]}
+                            />
+
+                            <SettingOption
+                                title="Contact Administrator"
+                                onPress={() => { }}
+                            />
+                        </View>
+                    </View>
+
+                    {/* ABOUT */}
+
+                    <View style={styles.section}>
+                        <Text
+                            style={[
+                                styles.sectionTitle,
+                                {
+                                    color:
+                                        currentTheme.primary,
+                                },
+                            ]}
+                        >
+                            About
+                        </Text>
+
+                        <View
+                            style={[
+                                styles.card,
+                                styles.aboutContainer,
+                                {
+                                    backgroundColor:
+                                        currentTheme.card,
+                                },
+                            ]}
+                        >
+                            <Text
+                                style={[
+                                    styles.versionText,
+                                    {
+                                        color:
+                                            currentTheme.text,
+                                    },
+                                ]}
+                            >
+                                ServeDesk v1.0.0
+                            </Text>
+
+                            <Text
+                                style={[
+                                    styles.aboutText,
+                                    {
+                                        color:
+                                            currentTheme.secondaryText,
+                                    },
+                                ]}
+                            >
+                                Smart Office Service &
+                                Assistance Platform
+                            </Text>
+                        </View>
+                    </View>
+
+                    {/* LOGOUT */}
+
+                    <TouchableOpacity
+                        style={[
+                            styles.logoutButton,
+                            {
+                                backgroundColor:
+                                    currentTheme.danger,
+                            },
+                        ]}
+                        onPress={logout}
+                    >
+                        <Text
+                            style={styles.logoutText}
+                        >
+                            Logout
+                        </Text>
+                    </TouchableOpacity>
+                </ScrollView>
+            </SafeAreaView>
+            <Modal
+                visible={changePasswordVisible}
+                transparent
+                animationType="fade"
+                onRequestClose={() =>
+                    setChangePasswordVisible(false)
                 }
             >
-                {/* HEADER */}
-
-                <View
-                    style={styles.headerContainer}
-                >
-                    <TouchableOpacity
-                        onPress={() =>
-                            router.back()
-                        }
+                <View style={styles.modalOverlay}>
+                    <View
                         style={[
-                            styles.backButton,
+                            styles.modalContainer,
                             {
                                 backgroundColor:
                                     currentTheme.card,
                             },
                         ]}
                     >
-                        <Ionicons
-                            name="chevron-back"
-                            size={24}
-                            color={
-                                currentTheme.text
-                            }
-                        />
-                    </TouchableOpacity>
-
-                    <View
-                        style={
-                            styles.headerTextContainer
-                        }
-                    >
                         <Text
                             style={[
-                                styles.headerTitle,
+                                styles.modalTitle,
                                 {
-                                    color:
-                                        currentTheme.text,
+                                    color: currentTheme.text,
                                 },
                             ]}
                         >
-                            Settings
+                            Change Password
                         </Text>
 
                         <Text
                             style={[
-                                styles.headerSubtitle,
+                                styles.inputLabel,
                                 {
                                     color:
                                         currentTheme.secondaryText,
                                 },
                             ]}
                         >
-                            Manage your preferences
+                            Current Password
                         </Text>
-                    </View>
-                </View>
 
-                {/* PROFILE */}
-
-                <View
-                    style={[
-                        styles.profileCard,
-                        {
-                            backgroundColor:
-                                currentTheme.card,
-                        },
-                    ]}
-                >
-                    <View
-                        style={[
-                            styles.avatar,
-                            {
-                                backgroundColor:
-                                    currentTheme.primary,
-                            },
-                        ]}
-                    >
-                        <Text
-                            style={styles.avatarText}
-                        >
-                            {user?.full_name
-                                ?.charAt(0)
-                                ?.toUpperCase() ||
-                                "U"}
-                        </Text>
-                    </View>
-
-                    <View
-                        style={styles.profileInfo}
-                    >
-                        <Text
+                        <TextInput
+                            secureTextEntry
+                            value={currentPassword}
+                            onChangeText={setCurrentPassword}
+                            placeholder="Enter current password"
+                            placeholderTextColor={
+                                currentTheme.secondaryText
+                            }
                             style={[
-                                styles.userName,
+                                styles.input,
                                 {
-                                    color:
-                                        currentTheme.text,
+                                    color: currentTheme.text,
+                                    borderColor:
+                                        currentTheme.border,
                                 },
                             ]}
-                        >
-                            {user?.full_name ||
-                                "User"}
-                        </Text>
+                        />
 
                         <Text
                             style={[
-                                styles.userRole,
+                                styles.inputLabel,
                                 {
                                     color:
                                         currentTheme.secondaryText,
                                 },
                             ]}
                         >
-                            {user?.user_type}
+                            New Password
                         </Text>
-                    </View>
-                </View>
 
-                {/* APPEARANCE */}
-
-                <View style={styles.section}>
-                    <Text
-                        style={[
-                            styles.sectionTitle,
-                            {
-                                color:
-                                    currentTheme.primary,
-                            },
-                        ]}
-                    >
-                        Appearance
-                    </Text>
-
-                    <View
-                        style={[
-                            styles.card,
-                            {
-                                backgroundColor:
-                                    currentTheme.card,
-                            },
-                        ]}
-                    >
-                        <SettingOption
-                            title="Dark Theme"
-                            selected={
-                                theme === "dark"
+                        <TextInput
+                            secureTextEntry
+                            value={newPassword}
+                            onChangeText={setNewPassword}
+                            placeholder="Enter new password"
+                            placeholderTextColor={
+                                currentTheme.secondaryText
                             }
-                            onPress={() =>
-                                saveTheme("dark")
-                            }
-                        />
-
-                        <View
                             style={[
-                                styles.divider,
+                                styles.input,
                                 {
-                                    backgroundColor:
+                                    color: currentTheme.text,
+                                    borderColor:
                                         currentTheme.border,
                                 },
                             ]}
                         />
-
-                        <SettingOption
-                            title="Light Theme"
-                            selected={
-                                theme === "light"
-                            }
-                            onPress={() =>
-                                saveTheme(
-                                    "light"
-                                )
-                            }
-                        />
-
-                        <View
-                            style={[
-                                styles.divider,
-                                {
-                                    backgroundColor:
-                                        currentTheme.border,
-                                },
-                            ]}
-                        />
-
-                        <SettingOption
-                            title="System Theme"
-                            selected={
-                                theme ===
-                                "system"
-                            }
-                            onPress={() =>
-                                saveTheme(
-                                    "system"
-                                )
-                            }
-                        />
-                    </View>
-                </View>
-
-                {/* LANGUAGE */}
-
-                <View style={styles.section}>
-                    <Text
-                        style={[
-                            styles.sectionTitle,
-                            {
-                                color:
-                                    currentTheme.primary,
-                            },
-                        ]}
-                    >
-                        Language
-                    </Text>
-
-                    <View
-                        style={[
-                            styles.card,
-                            {
-                                backgroundColor:
-                                    currentTheme.card,
-                            },
-                        ]}
-                    >
-                        <SettingOption
-                            title="English"
-                            selected={
-                                language === "en"
-                            }
-                            onPress={() =>
-                                saveLanguage("en")
-                            }
-                        />
-
-                        <View
-                            style={[
-                                styles.divider,
-                                {
-                                    backgroundColor:
-                                        currentTheme.border,
-                                },
-                            ]}
-                        />
-
-                        <SettingOption
-                            title="Hindi"
-                            selected={
-                                language === "hi"
-                            }
-                            onPress={() =>
-                                saveLanguage("hi")
-                            }
-                        />
-
-                        <View
-                            style={[
-                                styles.divider,
-                                {
-                                    backgroundColor:
-                                        currentTheme.border,
-                                },
-                            ]}
-                        />
-
-                        <SettingOption
-                            title="Bengali"
-                            selected={
-                                language === "bn"
-                            }
-                            onPress={() =>
-                                saveLanguage("bn")
-                            }
-                        />
-                    </View>
-                </View>
-
-                {/* NOTIFICATIONS */}
-
-                <View style={styles.section}>
-                    <Text
-                        style={[
-                            styles.sectionTitle,
-                            {
-                                color:
-                                    currentTheme.primary,
-                            },
-                        ]}
-                    >
-                        Notifications
-                    </Text>
-
-                    <View
-                        style={[
-                            styles.card,
-                            {
-                                backgroundColor:
-                                    currentTheme.card,
-                            },
-                        ]}
-                    >
-                        <SettingSwitch
-                            title="Ticket Alerts"
-                            value={
-                                ticketNotifications
-                            }
-                                  disabled={true}
-                            onChange={async (
-                                value: boolean
-                            ) => {
-                                setTicketNotifications(
-                                    value
-                                );
-
-                                await saveToggle(
-                                    "ticketNotifications",
-                                    value
-                                );
-                            }}
-                        />
-
-                        <View
-                            style={[
-                                styles.divider,
-                                {
-                                    backgroundColor:
-                                        currentTheme.border,
-                                },
-                            ]}
-                        />
-
-                        <SettingSwitch
-                            title="Order Alerts"
-                            value={
-                                orderNotifications
-                            }
-                             disabled={true}
-                            onChange={async (
-                                value: boolean
-                            ) => {
-                                setOrderNotifications(
-                                    value
-                                );
-
-                                await saveToggle(
-                                    "orderNotifications",
-                                    value
-                                );
-                            }}
-                        />
-
-                        <View
-                            style={[
-                                styles.divider,
-                                {
-                                    backgroundColor:
-                                        currentTheme.border,
-                                },
-                            ]}
-                        />
-
-                        <SettingSwitch
-                            title="Announcements"
-                            value={
-                                announcementNotifications
-                            }
-                             disabled={true}
-                            onChange={async (
-                                value: boolean
-                            ) => {
-                                setAnnouncementNotifications(
-                                    value
-                                );
-
-                                await saveToggle(
-                                    "announcementNotifications",
-                                    value
-                                );
-                            }}
-                        />
-
-                        <View
-                            style={[
-                                styles.divider,
-                                {
-                                    backgroundColor:
-                                        currentTheme.border,
-                                },
-                            ]}
-                        />
-
-                        <SettingSwitch
-                            title="Sound"
-                            value={
-                                soundEnabled
-                            }
-                             disabled={true}
-                            onChange={async (
-                                value: boolean
-                            ) => {
-                                setSoundEnabled(
-                                    value
-                                );
-
-                                await saveToggle(
-                                    "soundEnabled",
-                                    value
-                                );
-                            }}
-                        />
-
-                        <View
-                            style={[
-                                styles.divider,
-                                {
-                                    backgroundColor:
-                                        currentTheme.border,
-                                },
-                            ]}
-                        />
-
-                        <SettingSwitch
-                            title="Vibration"
-                            value={
-                                vibrationEnabled
-                            }
-                             disabled={true}
-                            onChange={async (
-                                value: boolean
-                            ) => {
-                                setVibrationEnabled(
-                                    value
-                                );
-
-                                await saveToggle(
-                                    "vibrationEnabled",
-                                    value
-                                );
-                            }}
-                        />
-                    </View>
-                </View>
-
-                {/* ACCOUNT */}
-
-                <View style={styles.section}>
-                    <Text
-                        style={[
-                            styles.sectionTitle,
-                            {
-                                color:
-                                    currentTheme.primary,
-                            },
-                        ]}
-                    >
-                        Account
-                    </Text>
-
-                    <View
-                        style={[
-                            styles.card,
-                            {
-                                backgroundColor:
-                                    currentTheme.card,
-                            },
-                        ]}
-                    >
-                        <SettingOption
-                            title="My Profile"
-                            onPress={() => { }}
-                        />
-
-                        <View
-                            style={[
-                                styles.divider,
-                                {
-                                    backgroundColor:
-                                        currentTheme.border,
-                                },
-                            ]}
-                        />
-
-                        <SettingOption
-                            title="Change Password"
-                            onPress={() => { }}
-                        />
-
-                        <View
-                            style={[
-                                styles.divider,
-                                {
-                                    backgroundColor:
-                                        currentTheme.border,
-                                },
-                            ]}
-                        />
-
-                        <SettingOption
-                            title="Contact Administrator"
-                            onPress={() => { }}
-                        />
-                    </View>
-                </View>
-
-                {/* ABOUT */}
-
-                <View style={styles.section}>
-                    <Text
-                        style={[
-                            styles.sectionTitle,
-                            {
-                                color:
-                                    currentTheme.primary,
-                            },
-                        ]}
-                    >
-                        About
-                    </Text>
-
-                    <View
-                        style={[
-                            styles.card,
-                            styles.aboutContainer,
-                            {
-                                backgroundColor:
-                                    currentTheme.card,
-                            },
-                        ]}
-                    >
-                        <Text
-                            style={[
-                                styles.versionText,
-                                {
-                                    color:
-                                        currentTheme.text,
-                                },
-                            ]}
-                        >
-                            ServeDesk v1.0.0
-                        </Text>
 
                         <Text
                             style={[
-                                styles.aboutText,
+                                styles.inputLabel,
                                 {
                                     color:
                                         currentTheme.secondaryText,
                                 },
                             ]}
                         >
-                            Smart Office Service &
-                            Assistance Platform
+                            Confirm Password
                         </Text>
+
+                        <TextInput
+                            secureTextEntry
+                            value={confirmPassword}
+                            onChangeText={setConfirmPassword}
+                            placeholder="Confirm new password"
+                            placeholderTextColor={
+                                currentTheme.secondaryText
+                            }
+                            style={[
+                                styles.input,
+                                {
+                                    color: currentTheme.text,
+                                    borderColor:
+                                        currentTheme.border,
+                                },
+                            ]}
+                        />
+
+                        <View style={styles.modalActions}>
+                            <TouchableOpacity
+                                style={[
+                                    styles.cancelButton,
+                                    {
+                                        backgroundColor:
+                                            currentTheme.border,
+                                    },
+                                ]}
+                                onPress={() =>
+                                    setChangePasswordVisible(false)
+                                }
+                            >
+                                <Text
+                                    style={{
+                                        color: currentTheme.text,
+                                        fontWeight: "700",
+                                    }}
+                                >
+                                    Cancel
+                                </Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                disabled={passwordLoading}
+                                style={[
+                                    styles.saveButton,
+                                    {
+                                        backgroundColor:
+                                            currentTheme.primary,
+                                    },
+                                ]}
+                                onPress={
+                                    handleChangePassword
+                                }
+                            >
+                                {passwordLoading ? (
+                                    <ActivityIndicator
+                                        color="#fff"
+                                    />
+                                ) : (
+                                    <Text
+                                        style={{
+                                            color: "#FFF",
+                                            fontWeight: "700",
+                                        }}
+                                    >
+                                        Update
+                                    </Text>
+                                )}
+                            </TouchableOpacity>
+                        </View>
                     </View>
                 </View>
-
-                {/* LOGOUT */}
-
-                <TouchableOpacity
-                    style={[
-                        styles.logoutButton,
-                        {
-                            backgroundColor:
-                                currentTheme.danger,
-                        },
-                    ]}
-                    onPress={logout}
-                >
-                    <Text
-                        style={styles.logoutText}
-                    >
-                        Logout
-                    </Text>
-                </TouchableOpacity>
-            </ScrollView>
-        </SafeAreaView>
+            </Modal>
+        </View>
     );
 }
 
@@ -1086,7 +1361,7 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: "600",
         marginBottom: 4,
-        paddingLeft:10
+        paddingLeft: 10
     },
 
     aboutText: {
@@ -1114,5 +1389,65 @@ const styles = StyleSheet.create({
         color: "#FFFFFF",
         fontSize: 16,
         fontWeight: "700",
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: "rgba(0,0,0,0.6)",
+        justifyContent: "center",
+        alignItems: "center",
+        padding: 20,
+    },
+
+    modalContainer: {
+        width: "100%",
+        borderRadius: 20,
+        padding: 20,
+        elevation: 5,
+    },
+
+    modalTitle: {
+        fontSize: 22,
+        fontWeight: "700",
+        textAlign: "center",
+        marginBottom: 20,
+    },
+
+    inputLabel: {
+        fontSize: 14,
+        fontWeight: "600",
+        marginBottom: 6,
+        marginLeft: 2,
+    },
+
+    input: {
+        borderWidth: 1,
+        borderRadius: 12,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+        fontSize: 15,
+        marginBottom: 16,
+    },
+
+    modalActions: {
+        flexDirection: "row",
+        marginTop: 10,
+    },
+
+    cancelButton: {
+        flex: 1,
+        height: 48,
+        borderRadius: 12,
+        justifyContent: "center",
+        alignItems: "center",
+        marginRight: 8,
+    },
+
+    saveButton: {
+        flex: 1,
+        height: 48,
+        borderRadius: 12,
+        justifyContent: "center",
+        alignItems: "center",
+        marginLeft: 8,
     },
 });

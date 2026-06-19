@@ -4,6 +4,8 @@
 from .auth_service import (
     create_user,
     authenticate_user,
+    update_user_profile,
+    change_user_password,
     logout_user,
 )
 
@@ -74,6 +76,8 @@ __all__ = [
     # auth
     "create_user",
     "authenticate_user",
+    "update_user_profile",
+    "change_user_password",
     "logout_user",
 
     # product

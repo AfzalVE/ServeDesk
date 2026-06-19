@@ -187,19 +187,39 @@ from sqlalchemy import create_engine, text
 # POSTGRES (RENDER / NEON)
 # =========================
 
-DATABASE_URL = "postgresql+psycopg://neondb_owner:@ep-divine-glitter-apdpo021.c-7.us-east-1.aws.neon.tech/neondb?sslmode=require"
+# DATABASE_URL = "postgresql+psycopg://neondb_owner:@ep-divine-glitter-apdpo021-pooler.c-7.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+# engine = create_engine(DATABASE_URL)
+
+# with engine.begin() as conn:
+
+#     try:
+#         conn.execute(text("""
+#             ALTER TABLE users
+#             ADD COLUMN expo_push_token TEXT
+#         """))
+#         print("Added users.expo_push_token")
+#     except Exception as e:
+#         print("expo_push_token:", e)
+
+# print("Migration completed.")
+
+# from sqlalchemy import create_engine, text
+
+from sqlalchemy import create_engine, text
+
+DATABASE_URL = "postgresql+psycopg://neondb_owner:@ep-divine-glitter-apdpo021-pooler.c-7.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
 
 engine = create_engine(DATABASE_URL)
 
 with engine.begin() as conn:
+    conn.execute(text("""
+        DROP TABLE IF EXISTS announcements CASCADE;
+        DROP TABLE IF EXISTS order_items CASCADE;
+        DROP TABLE IF EXISTS orders CASCADE;
+        DROP TABLE IF EXISTS products CASCADE;
+        DROP TABLE IF EXISTS support_tickets CASCADE;
+        DROP TABLE IF EXISTS user_sessions CASCADE;
+        DROP TABLE IF EXISTS users CASCADE;
+    """))
 
-    try:
-        conn.execute(text("""
-            ALTER TABLE users
-            ADD COLUMN expo_push_token TEXT
-        """))
-        print("Added users.expo_push_token")
-    except Exception as e:
-        print("expo_push_token:", e)
-
-print("Migration completed.")
+print("All tables dropped.")

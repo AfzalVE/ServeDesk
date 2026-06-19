@@ -113,15 +113,6 @@ export default function Home() {
           >
             <Text style={styles.primaryText}>Login to Dashboard</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.testBtn}
-            onPress={testNotification}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.testBtnText}>
-              Test Notification
-            </Text>
-          </TouchableOpacity>
 
           <Text style={styles.footerHint}>
             Secure • Fast • Real-time system

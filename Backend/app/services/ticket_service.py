@@ -68,9 +68,34 @@ def raise_ticket(
             }
         ) 
     )
-    print("==== TICKET CREATED ====")
-    print("Employee:", employee)
-    print("Push Token:", employee.expo_push_token if employee else None)
+    customer = (
+        db.query(User)
+        .filter(
+            User.id == customer_id,
+            User.user_type == "CUSTOMER"
+        )
+        .first()
+    )
+
+    if customer and customer.expo_push_token:
+        try:
+            send_push_notification(
+                customer.expo_push_token,
+                "Ticket Raised",
+                "Your support ticket has been created successfully"
+            )
+        except Exception:
+            pass
+
+    if employee and employee.expo_push_token:
+        try:
+            send_push_notification(
+                employee.expo_push_token,
+                "New Ticket",
+                f"{customer.full_name} raised a ticket"
+            )
+        except Exception:
+            pass
 
     if employee and employee.expo_push_token:
         print("Calling send_push_notification()")
@@ -190,6 +215,26 @@ def accept_ticket(
     db.commit()
     asyncio.create_task( ticket_manager.broadcast( { "event": "ticket_accepted", "ticket_id": ticket.id } ) )
     db.refresh(ticket)
+    customer = (
+    db.query(User)
+    .filter(
+        User.id == ticket.customer_id
+    )
+    .first()
+    )
+
+    if (
+        customer and
+        customer.expo_push_token
+    ):
+        try:
+            send_push_notification(
+                customer.expo_push_token,
+                "Ticket Accepted",
+                f"{employee.full_name} accepted your ticket"
+            )
+        except Exception:
+            pass
 
     return ticket
 
@@ -236,6 +281,20 @@ def reject_ticket(
     db.commit()
     db.refresh(ticket)
     active_employees = get_active_employee(db)
+    for emp in active_employees:
+
+        if (
+            emp.id != employee_id and
+            emp.expo_push_token
+        ):
+            try:
+                send_push_notification(
+                    emp.expo_push_token,
+                    "New Ticket Available",
+                    f"Ticket #{ticket.id} requires attention"
+                )
+            except Exception:
+                pass
 
     employee_ids = [
         emp.id
@@ -256,7 +315,26 @@ def reject_ticket(
         )
     )    
     db.refresh(ticket)
+    customer = (
+    db.query(User)
+    .filter(
+        User.id == ticket.customer_id
+    )
+    .first()
+    )
 
+    if (
+        customer and
+        customer.expo_push_token
+    ):
+        try:
+            send_push_notification(
+                customer.expo_push_token,
+                "Ticket Rejected",
+                f"Your ticket was rejected. Reason: {reason}"
+            )
+        except Exception:
+            pass
     return ticket
 
 
@@ -285,6 +363,27 @@ def cancel_ticket(
     asyncio.create_task( ticket_manager.broadcast( { "event": "ticket_cancelled", "ticket_id": ticket.id } ) )
     db.refresh(ticket)
 
+    if ticket.accepted_employee_id:
+        employee = (
+            db.query(User)
+            .filter(
+                User.id == ticket.accepted_employee_id
+            )
+            .first()
+        )
+
+        if (
+            employee and
+            employee.expo_push_token
+        ):
+            try:
+                send_push_notification(
+                    employee.expo_push_token,
+                    "Ticket Cancelled",
+                    f"Ticket #{ticket.id} has been cancelled"
+                )
+            except Exception:
+                pass
     return ticket
 
 
@@ -311,5 +410,24 @@ def close_ticket(
 
     db.commit()
     db.refresh(ticket)
+    customer = (
+    db.query(User)
+    .filter(
+        User.id == ticket.customer_id
+    )
+    .first()
+    )
 
+    if (
+        customer and
+        customer.expo_push_token
+    ):
+        try:
+            send_push_notification(
+                customer.expo_push_token,
+                "Ticket Closed",
+                "Your support ticket has been closed"
+            )
+        except Exception:
+            pass
     return ticket

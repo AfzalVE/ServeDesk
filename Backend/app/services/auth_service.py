@@ -71,7 +71,85 @@ def authenticate_user(db: Session, email: str, password: str):
         "user": user
     }
 
+#Update Profile
 
+def update_user_profile(
+    db: Session,
+    user_id: int,
+    full_name: str,
+    employee_id: str,
+    email: str
+):
+
+    user = db.query(User).filter(
+        User.id == user_id
+    ).first()
+
+    if not user:
+        return None
+
+    existing = db.query(User).filter(
+        User.email == email,
+        User.id != user_id
+    ).first()
+
+    if existing:
+        return {
+            "success": False,
+            "message": "Email already exists"
+        }
+
+    user.full_name = full_name
+    user.employee_id = employee_id
+    user.email = email
+
+    db.commit()
+    db.refresh(user)
+
+    return {
+        "success": True,
+        "message": "Profile updated successfully",
+        "user": user
+    }
+
+#Change Password
+def change_user_password(
+    db: Session,
+    user_id: int,
+    current_password: str,
+    new_password: str
+):
+    print("Change Password Entry ")
+
+    user = db.query(User).filter(
+        User.id == user_id
+    ).first()
+
+    if not user:
+        return {
+            "success": False,
+            "message": "User not found"
+        }
+
+    if not verify_password(
+        current_password,
+        user.password
+    ):
+        return {
+            "success": False,
+            "message": "Current password is incorrect"
+        }
+
+    user.password = hash_password(
+        new_password
+    )
+
+    db.commit()
+
+    return {
+        "success": True,
+        "message": "Password changed successfully"
+    }
 # ---------------- LOGOUT ----------------
 
 

@@ -4,6 +4,8 @@
 from .auth import (
     SignUpSchema,
     SignInSchema,
+    UpdateProfileSchema,
+    ChangePasswordSchema
 )
 
 # ==========================
@@ -61,6 +63,8 @@ __all__ = [
     # user
     "UserResponse",
     "UserUpdate",
+    "UpdateProfileSchema",
+    "ChangePasswordSchema",
 
     # product
     "ProductCreateSchema",

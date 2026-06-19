@@ -27,6 +27,8 @@ from app.schemas import (
     SignInSchema,
     UserResponse,
     UserUpdate,
+    UpdateProfileSchema,
+    ChangePasswordSchema,
 
     ProductCreateSchema,
     ProductResponse,
@@ -48,7 +50,7 @@ from app.schemas import (
 # ==========================
 # Services
 # ==========================
-from app.services.auth_service import create_user, authenticate_user,logout_user
+from app.services.auth_service import create_user, authenticate_user,update_user_profile,change_user_password,logout_user
 
 
 from app.services.product_service import (
@@ -283,7 +285,50 @@ def me(
         "created_at": current_user.created_at
     }
 
+@app.put("/update-profile")
+def update_profile(
+    payload: UpdateProfileSchema,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
 
+    result = update_user_profile(
+        db=db,
+        user_id=current_user.id,
+        full_name=payload.full_name,
+        employee_id=payload.employee_id,
+        email=payload.email
+    )
+
+    if not result["success"]:
+        raise HTTPException(
+            status_code=400,
+            detail=result["message"]
+        )
+
+    return result
+
+@app.put("/change-password")
+def change_password(
+    payload: ChangePasswordSchema,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    print("Main entry")
+    result = change_user_password(
+        db=db,
+        user_id=current_user.id,
+        current_password=payload.current_password,
+        new_password=payload.new_password
+    )
+    print("Main exit")
+    if not result["success"]:
+        raise HTTPException(
+            status_code=400,
+            detail=result["message"]
+        )
+
+    return result
 
 @app.post("/logout")
 def logout(
