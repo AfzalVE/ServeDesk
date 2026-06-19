@@ -4,7 +4,7 @@
     "slug": "servedesk",
     "version": "1.0.0",
     "orientation": "portrait",
-    "scheme": "servedesk",
+    "scheme": "servedesk1",
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
