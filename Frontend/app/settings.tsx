@@ -288,10 +288,21 @@ const SettingSwitch = ({
   title,
   value,
   onChange,
+  disabled = false,
 }: any) => (
-  <View style={styles.option}>
+  <View
+    style={[
+      styles.option,
+      disabled && {
+        opacity: 0.5,
+      },
+    ]}
+  >
+
     <View style={styles.optionLeft}>
+
       <View style={styles.optionTextContainer}>
+
         <Text
           style={[
             styles.optionTitle,
@@ -302,18 +313,26 @@ const SettingSwitch = ({
         >
           {title}
         </Text>
+
       </View>
+
     </View>
+
 
     <Switch
       value={value}
+      disabled={disabled}
       onValueChange={onChange}
+
       trackColor={{
         false: "#767577",
         true: currentTheme.primary,
       }}
+
       thumbColor="#FFFFFF"
     />
+
+
   </View>
 );
     return (
@@ -638,6 +657,7 @@ const SettingSwitch = ({
                             value={
                                 ticketNotifications
                             }
+                                  disabled={true}
                             onChange={async (
                                 value: boolean
                             ) => {
@@ -667,6 +687,7 @@ const SettingSwitch = ({
                             value={
                                 orderNotifications
                             }
+                             disabled={true}
                             onChange={async (
                                 value: boolean
                             ) => {
@@ -696,6 +717,7 @@ const SettingSwitch = ({
                             value={
                                 announcementNotifications
                             }
+                             disabled={true}
                             onChange={async (
                                 value: boolean
                             ) => {
@@ -725,6 +747,7 @@ const SettingSwitch = ({
                             value={
                                 soundEnabled
                             }
+                             disabled={true}
                             onChange={async (
                                 value: boolean
                             ) => {
@@ -754,6 +777,7 @@ const SettingSwitch = ({
                             value={
                                 vibrationEnabled
                             }
+                             disabled={true}
                             onChange={async (
                                 value: boolean
                             ) => {
