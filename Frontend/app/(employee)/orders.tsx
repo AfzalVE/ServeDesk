@@ -12,8 +12,14 @@ import React, { useEffect, useState, useRef } from "react"; import {
 import { RefreshControl } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { API_URL } from "../../config/api";
-import { colors } from "../../constants/theme";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect } from "@react-navigation/native";
+import { useColorScheme } from "react-native";
 
+import {
+  darkTheme,
+  lightTheme,
+} from "../../constants/theme";
 
 type Order = {
   id: number;
@@ -38,7 +44,65 @@ export default function OrdersPage() {
   const [rejectModal, setRejectModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<number | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+const [theme,setTheme] = useState("dark");
 
+const deviceTheme = useColorScheme();
+
+
+
+useFocusEffect(
+  React.useCallback(()=>{
+
+    loadTheme();
+
+  },[])
+);
+
+
+
+const loadTheme = async()=>{
+
+  try{
+
+    const savedTheme =
+      await AsyncStorage.getItem("theme");
+
+
+    if(savedTheme){
+
+      setTheme(savedTheme);
+
+    }
+
+
+  }catch(error){
+
+    console.log(error);
+
+  }
+
+};
+
+
+
+const currentTheme =
+theme === "light"
+?
+lightTheme
+:
+theme === "dark"
+?
+darkTheme
+:
+deviceTheme === "light"
+?
+lightTheme
+:
+darkTheme;
+
+
+
+const styles = createStyles(currentTheme);
   useEffect(() => {
     fetchOrders();
     // =====================
@@ -346,8 +410,9 @@ export default function OrdersPage() {
   if (loading) {
     return (
       <View style={styles.loader}>
-        <ActivityIndicator color="#2D8CFF" />
-      </View>
+<ActivityIndicator
+ color={currentTheme.primary}
+/>      </View>
     );
   }
 
@@ -358,8 +423,13 @@ export default function OrdersPage() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={["#2D8CFF"]}
-            tintColor="#2D8CFF"
+           colors={[
+ currentTheme.primary
+]}
+
+tintColor={
+ currentTheme.primary
+}
           />
         }
       >
@@ -604,276 +674,343 @@ export default function OrdersPage() {
     </View>
   );
 }
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
+const createStyles = (theme:any)=>
 
-  loader: {
-    flex: 1,
-    justifyContent: "center",
-  },
+StyleSheet.create({
 
-  title: {
-    color: "#fff",
-    fontSize: 26,
-    fontWeight: "900",
-    margin: 20,
-  },
 
-  text: {
-    color: "#fff",
-    fontWeight: "800",
-  },
-
-  sub: {
-    color: "#9DB1C7",
-    marginTop: 5,
-  },
-
-  row: {
-    flexDirection: "row",
-    marginTop: 12,
-    flexWrap: "wrap",
-    gap: 10,
-  },
-
-  btn: {
-    backgroundColor: "#2D8CFF",
-    padding: 10,
-    borderRadius: 10,
-  },
-
-  btnText: {
-    color: "#fff",
-    fontWeight: "800",
-  },
-
-  doneText: {
-    marginTop: 10,
-    color: "#9DB1C7",
-    fontWeight: "700",
-  },
-
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    justifyContent: "center",
-    padding: 20,
-  },
-
-  modalBox: {
-    backgroundColor: "#101E2D",
-    padding: 20,
-    borderRadius: 16,
-  },
-
-  modalTitle: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "900",
-    marginBottom: 10,
-  },
-
-  input: {
-    backgroundColor: "#16293D",
-    color: "#fff",
-    padding: 12,
-    borderRadius: 10,
-    minHeight: 80,
-    marginBottom: 15,
-  },
-
-  modalRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-
-  left: {
-    color: "#90A4AE",
-    fontSize: 14,
-    fontWeight: "700",
-  },
-
-  right: {
-    color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "800",
-  },
-  card: {
-    backgroundColor: "#101E2D",
-    marginHorizontal: 16,
-    marginVertical: 8,
-    padding: 18,
-    borderRadius: 18,
-  },
-
-  cardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-
-  orderId: {
-    color: "#FFFFFF",
-    fontSize: 20,
-    fontWeight: "900",
-  },
-
-  divider: {
-    height: 1,
-    backgroundColor: "#22384F",
-    marginVertical: 15,
-  },
-
-  infoRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginVertical: 6,
-  },
-
-  label: {
-    color: "#90A4AE",
-    fontSize: 14,
-    fontWeight: "700",
-  },
-
-  value: {
-    color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "800",
-    maxWidth: "60%",
-    textAlign: "right",
-  },
-
-  statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 10,
-  },
-  dateRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginHorizontal: 16,
-    marginBottom: 16,
-  },
-
-  dayButton: {
-    backgroundColor: "#101E2D",
-    width: 45,
-    height: 45,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  dayButtonText: {
-    color: "#FFFFFF",
-    fontSize: 18,
-    fontWeight: "900",
-  },
-
-  dateButton: {
-    backgroundColor: "#101E2D",
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    borderRadius: 12,
-    marginHorizontal: 10,
-  },
-
-  dateText: {
-    color: "#FFFFFF",
-    fontWeight: "700",
-  },
-
-  empty: {
-    color: "#90A4AE",
-    textAlign: "center",
-    marginTop: 50,
-    fontSize: 16,
-  },
-  pending: {
-    backgroundColor: "#FB8C00",
-  },
-
-  accepted: {
-    backgroundColor: "#1E88E5",
-  },
-
-  delivered: {
-    backgroundColor: "#43A047",
-  },
-
-  rejected: {
-    backgroundColor: "#E53935",
-  },
-  cancelled: {
-    backgroundColor: "#E53935",
-  },
-
-  statusText: {
-    color: "#FFFFFF",
-    fontWeight: "800",
-    fontSize: 12,
-  },
-rejectedText: {
-  color: "#FF5252",
-  textAlign: "center",
-  marginTop: 18,
-  fontWeight: "800",
+container:{
+ flex:1,
+ backgroundColor:theme.background,
 },
 
 
-cancelledText: {
-  color: "#FF9800",
-  textAlign: "center",
-  marginTop: 18,
-  fontWeight: "800",
+loader:{
+ flex:1,
+ justifyContent:"center",
+ alignItems:"center",
+ backgroundColor:theme.background,
 },
-  buttonRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 20,
-  },
 
-  acceptBtn: {
-    flex: 1,
-    backgroundColor: "#1976D2",
-    padding: 12,
-    borderRadius: 12,
-    alignItems: "center",
-    marginRight: 8,
-  },
 
-  deliverBtn: {
-    flex: 1,
-    backgroundColor: "#2E7D32",
-    padding: 12,
-    borderRadius: 12,
-    alignItems: "center",
-    marginRight: 8,
-  },
 
-  rejectBtn: {
-    flex: 1,
-    backgroundColor: "#D32F2F",
-    padding: 12,
-    borderRadius: 12,
-    alignItems: "center",
-  },
+title:{
+ color:theme.text,
+ fontSize:26,
+ fontWeight:"900",
+ margin:20,
+},
 
-  buttonText: {
-    color: "#FFFFFF",
-    fontWeight: "800",
-    fontSize: 15,
-  },
 
-  completedText: {
-    color: "#64B5F6",
-    textAlign: "center",
-    marginTop: 18,
-    fontWeight: "700",
-  },
+
+text:{
+ color:theme.text,
+ fontWeight:"800",
+},
+
+
+
+sub:{
+ color:theme.secondaryText,
+ marginTop:5,
+},
+
+
+
+btn:{
+ backgroundColor:theme.primary,
+ padding:10,
+ borderRadius:10,
+},
+
+
+
+btnText:{
+ color:theme.buttonText,
+ fontWeight:"800",
+},
+
+
+
+modalOverlay:{
+ flex:1,
+ backgroundColor:"rgba(0,0,0,0.6)",
+ justifyContent:"center",
+ padding:20,
+},
+
+
+
+modalBox:{
+ backgroundColor:theme.card,
+ padding:20,
+ borderRadius:16,
+},
+
+
+
+modalTitle:{
+ color:theme.text,
+ fontSize:18,
+ fontWeight:"900",
+ marginBottom:10,
+},
+
+
+
+input:{
+ backgroundColor:theme.cardDark,
+ color:theme.text,
+ padding:12,
+ borderRadius:10,
+ minHeight:80,
+ marginBottom:15,
+},
+
+
+
+modalRow:{
+ flexDirection:"row",
+ justifyContent:"space-between",
+},
+
+
+
+card:{
+ backgroundColor:theme.card,
+ marginHorizontal:16,
+ marginVertical:8,
+ padding:18,
+ borderRadius:18,
+},
+
+
+
+cardHeader:{
+ flexDirection:"row",
+ justifyContent:"space-between",
+ alignItems:"center",
+},
+
+
+
+orderId:{
+ color:theme.text,
+ fontSize:20,
+ fontWeight:"900",
+},
+
+
+
+divider:{
+ height:1,
+ backgroundColor:theme.divider,
+ marginVertical:15,
+},
+
+
+
+infoRow:{
+ flexDirection:"row",
+ justifyContent:"space-between",
+ marginVertical:6,
+},
+
+
+
+label:{
+ color:theme.secondaryText,
+ fontSize:14,
+ fontWeight:"700",
+},
+
+
+
+value:{
+ color:theme.text,
+ fontSize:14,
+ fontWeight:"800",
+ maxWidth:"60%",
+ textAlign:"right",
+},
+
+
+
+
+dateRow:{
+ flexDirection:"row",
+ alignItems:"center",
+ justifyContent:"center",
+ marginHorizontal:16,
+ marginBottom:16,
+},
+
+
+
+dayButton:{
+ backgroundColor:theme.card,
+ width:45,
+ height:45,
+ borderRadius:12,
+ justifyContent:"center",
+ alignItems:"center",
+},
+
+
+
+dayButtonText:{
+ color:theme.text,
+ fontSize:18,
+ fontWeight:"900",
+},
+
+
+
+dateButton:{
+ backgroundColor:theme.card,
+ paddingHorizontal:18,
+ paddingVertical:12,
+ borderRadius:12,
+ marginHorizontal:10,
+},
+
+
+
+dateText:{
+ color:theme.text,
+ fontWeight:"700",
+},
+
+
+
+empty:{
+ color:theme.mutedText,
+ textAlign:"center",
+ marginTop:50,
+ fontSize:16,
+},
+
+
+
+statusBadge:{
+ paddingHorizontal:12,
+ paddingVertical:6,
+ borderRadius:10,
+},
+
+
+
+pending:{
+ backgroundColor:theme.warning,
+},
+
+
+
+accepted:{
+ backgroundColor:theme.info,
+},
+
+
+
+delivered:{
+ backgroundColor:theme.success,
+},
+
+
+
+rejected:{
+ backgroundColor:theme.danger,
+},
+
+
+
+cancelled:{
+ backgroundColor:theme.buttonDisabled,
+},
+
+
+
+statusText:{
+ color:theme.buttonText,
+ fontWeight:"800",
+ fontSize:12,
+},
+
+
+
+buttonRow:{
+ flexDirection:"row",
+ justifyContent:"space-between",
+ marginTop:20,
+},
+
+
+
+acceptBtn:{
+ flex:1,
+ backgroundColor:theme.primaryDark,
+ padding:12,
+ borderRadius:12,
+ alignItems:"center",
+ marginRight:8,
+},
+
+
+
+deliverBtn:{
+ flex:1,
+ backgroundColor:theme.success,
+ padding:12,
+ borderRadius:12,
+ alignItems:"center",
+ marginRight:8,
+},
+
+
+
+rejectBtn:{
+ flex:1,
+ backgroundColor:theme.danger,
+ padding:12,
+ borderRadius:12,
+ alignItems:"center",
+},
+
+
+
+buttonText:{
+ color:theme.buttonText,
+ fontWeight:"800",
+ fontSize:15,
+},
+
+
+
+completedText:{
+ color:theme.primaryLight,
+ textAlign:"center",
+ marginTop:18,
+ fontWeight:"700",
+},
+
+
+
+rejectedText:{
+ color:theme.danger,
+ textAlign:"center",
+ marginTop:18,
+ fontWeight:"800",
+},
+
+
+
+cancelledText:{
+ color:theme.warning,
+ textAlign:"center",
+ marginTop:18,
+ fontWeight:"800",
+},
+
+
+
 });

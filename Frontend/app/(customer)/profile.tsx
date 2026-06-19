@@ -1,7 +1,9 @@
 import React, {
   useEffect,
   useState,
+  useCallback
 } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 
 import {
   View,
@@ -13,11 +15,15 @@ import {
   ScrollView,
   RefreshControl,
 } from "react-native";
-
+import { useColorScheme } from "react-native";
+import {
+  darkTheme,
+  lightTheme,
+} from "../../constants/theme";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-import { colors } from "../../constants/theme";
 
 import {
   getCurrentUser,
@@ -82,6 +88,40 @@ export default function Profile() {
       setRefreshing(false);
     }
   };
+  const deviceTheme = useColorScheme();
+
+  const [theme, setTheme] =
+    useState("dark");
+
+  useFocusEffect(
+    useCallback(() => {
+      loadTheme();
+    }, [])
+  );
+
+  const loadTheme = async () => {
+    try {
+      const savedTheme =
+        await AsyncStorage.getItem(
+          "theme"
+        );
+      console.log(savedTheme)
+      if (savedTheme) {
+        setTheme(savedTheme);
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const currentTheme =
+    theme === "light"
+      ? lightTheme
+      : theme === "dark"
+        ? darkTheme
+        : deviceTheme === "light"
+          ? lightTheme
+          : darkTheme;
 
   const handleLogout = () => {
     Alert.alert(
@@ -109,10 +149,18 @@ export default function Profile() {
 
   if (loading) {
     return (
-      <View style={styles.loader}>
+      <View
+        style={[
+          styles.loader,
+          {
+            backgroundColor:
+              currentTheme.background,
+          },
+        ]}
+      >
         <ActivityIndicator
           size="large"
-          color="#2D8CFF"
+          color={currentTheme.primary}
         />
       </View>
     );
@@ -120,7 +168,13 @@ export default function Profile() {
 
   return (
     <ScrollView
-      style={styles.container}
+      style={[
+        styles.container,
+        {
+          backgroundColor:
+            currentTheme.background,
+        },
+      ]}
       contentContainerStyle={{
         padding: 15,
         paddingBottom:
@@ -137,8 +191,48 @@ export default function Profile() {
     >
       {/* Profile Header */}
 
-      <View style={styles.profileCard}>
-        <View style={styles.avatar}>
+      <View
+        style={[
+          styles.profileCard,
+          {
+            backgroundColor:
+              currentTheme.card,
+          },
+        ]}
+      >
+        <TouchableOpacity
+          style={[
+            styles.settingsButton,
+            {
+              backgroundColor:
+                currentTheme.border,
+            },
+          ]}
+          onPress={() =>
+            router.push("/settings")
+          }
+        >
+          <Text
+            style={[
+              styles.settingsText,
+              {
+                color:
+                  currentTheme.primary,
+              },
+            ]}
+          >
+            Settings
+          </Text>
+        </TouchableOpacity>
+        <View
+          style={[
+            styles.avatar,
+            {
+              backgroundColor:
+                currentTheme.primary,
+            },
+          ]}
+        >
           <Text
             style={styles.avatarText}
           >
@@ -148,13 +242,34 @@ export default function Profile() {
           </Text>
         </View>
 
-        <Text style={styles.name}>
+        <Text
+          style={[
+            styles.name,
+            {
+              color:
+                currentTheme.text,
+            },
+          ]}
+        >
           {user?.name}
         </Text>
-
-        <View style={styles.roleBadge}>
+        <View
+          style={[
+            styles.roleBadge,
+            {
+              backgroundColor:
+                currentTheme.border,
+            },
+          ]}
+        >
           <Text
-            style={styles.roleText}
+            style={[
+              styles.roleText,
+              {
+                color:
+                  currentTheme.primary,
+              },
+            ]}
           >
             {user?.user_type}
           </Text>
@@ -165,88 +280,239 @@ export default function Profile() {
 
       <View style={styles.section}>
         <Text
-          style={styles.sectionTitle}
+          style={[
+            styles.sectionTitle,
+            {
+              color: currentTheme.secondaryText,
+            },
+          ]}
         >
           ACCOUNT INFORMATION
         </Text>
 
-        <View style={styles.infoCard}>
-          <Text style={styles.label}>
+        <View
+          style={[
+            styles.infoCard,
+            {
+              backgroundColor: currentTheme.card,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.label,
+              {
+                color: currentTheme.secondaryText,
+              },
+            ]}
+          >
             Employee ID
           </Text>
 
-          <Text style={styles.value}>
-            {user?.employee_id ||
-              "Not Assigned"}
+          <Text
+            style={[
+              styles.value,
+              {
+                color: currentTheme.text,
+              },
+            ]}
+          >
+            {user?.employee_id || "Not Assigned"}
           </Text>
         </View>
 
-        <View style={styles.infoCard}>
-          <Text style={styles.label}>
+        <View
+          style={[
+            styles.infoCard,
+            {
+              backgroundColor: currentTheme.card,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.label,
+              {
+                color: currentTheme.secondaryText,
+              },
+            ]}
+          >
             Full Name
           </Text>
 
-          <Text style={styles.value}>
-            {user?.name}
+          <Text
+            style={[
+              styles.value,
+              {
+                color: currentTheme.text,
+              },
+            ]}
+          >
+            {user?.name || "-"}
           </Text>
         </View>
 
-        <View style={styles.infoCard}>
-          <Text style={styles.label}>
+        <View
+          style={[
+            styles.infoCard,
+            {
+              backgroundColor: currentTheme.card,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.label,
+              {
+                color: currentTheme.secondaryText,
+              },
+            ]}
+          >
             Email
           </Text>
 
-          <Text style={styles.value}>
-            {user?.email}
+          <Text
+            style={[
+              styles.value,
+              {
+                color: currentTheme.text,
+              },
+            ]}
+          >
+            {user?.email || "-"}
           </Text>
         </View>
 
-        <View style={styles.infoCard}>
-          <Text style={styles.label}>
+        <View
+          style={[
+            styles.infoCard,
+            {
+              backgroundColor: currentTheme.card,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.label,
+              {
+                color: currentTheme.secondaryText,
+              },
+            ]}
+          >
             User Type
           </Text>
 
-          <Text style={styles.value}>
-            {user?.user_type}
+          <Text
+            style={[
+              styles.value,
+              {
+                color: currentTheme.text,
+              },
+            ]}
+          >
+            {user?.user_type || "-"}
           </Text>
         </View>
 
-        <View style={styles.infoCard}>
-          <Text style={styles.label}>
+        <View
+          style={[
+            styles.infoCard,
+            {
+              backgroundColor: currentTheme.card,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.label,
+              {
+                color: currentTheme.secondaryText,
+              },
+            ]}
+          >
             Status
           </Text>
 
-          <Text style={styles.value}>
-            {user?.is_active
-              ? "Active"
-              : "Offline"}
+          <Text
+            style={[
+              styles.value,
+              {
+                color: user?.is_active
+                  ? currentTheme.primary
+                  : currentTheme.danger,
+              },
+            ]}
+          >
+            {user?.is_active ? "Active" : "Offline"}
           </Text>
         </View>
 
-        <View style={styles.infoCard}>
-          <Text style={styles.label}>
+        <View
+          style={[
+            styles.infoCard,
+            {
+              backgroundColor: currentTheme.card,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.label,
+              {
+                color: currentTheme.secondaryText,
+              },
+            ]}
+          >
             Last Login
           </Text>
 
-          <Text style={styles.value}>
+          <Text
+            style={[
+              styles.value,
+              {
+                color: currentTheme.text,
+              },
+            ]}
+          >
             {user?.last_login
               ? new Date(
-                  user.last_login
-                ).toLocaleString()
+                user.last_login
+              ).toLocaleString()
               : "-"}
           </Text>
         </View>
 
-        <View style={styles.infoCard}>
-          <Text style={styles.label}>
+        <View
+          style={[
+            styles.infoCard,
+            {
+              backgroundColor: currentTheme.card,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.label,
+              {
+                color: currentTheme.secondaryText,
+              },
+            ]}
+          >
             Member Since
           </Text>
 
-          <Text style={styles.value}>
+          <Text
+            style={[
+              styles.value,
+              {
+                color: currentTheme.text,
+              },
+            ]}
+          >
             {user?.created_at
               ? new Date(
-                  user.created_at
-                ).toLocaleDateString()
+                user.created_at
+              ).toLocaleDateString()
               : "-"}
           </Text>
         </View>
@@ -255,32 +521,73 @@ export default function Profile() {
       {/* Actions */}
 
       <View style={styles.section}>
+        <Text
+          style={[
+            styles.sectionTitle,
+            {
+              color: currentTheme.secondaryText,
+            },
+          ]}
+        >
+          ACTIONS
+        </Text>
+
         <TouchableOpacity
-          style={styles.actionButton}
+          style={[
+            styles.actionButton,
+            {
+              backgroundColor: currentTheme.card,
+            },
+          ]}
         >
           <Text
-            style={styles.actionText}
+            style={[
+              styles.actionText,
+              {
+                color: currentTheme.text,
+              },
+            ]}
           >
             ✏️ Edit Profile
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.actionButton}
+          style={[
+            styles.actionButton,
+            {
+              backgroundColor: currentTheme.card,
+            },
+          ]}
         >
           <Text
-            style={styles.actionText}
+            style={[
+              styles.actionText,
+              {
+                color: currentTheme.text,
+              },
+            ]}
           >
             🔒 Change Password
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.logoutButton}
+          style={[
+            styles.logoutButton,
+            {
+              backgroundColor: currentTheme.danger,
+            },
+          ]}
           onPress={handleLogout}
         >
           <Text
-            style={styles.logoutText}
+            style={[
+              styles.logoutText,
+              {
+                color: "#FFFFFF",
+              },
+            ]}
           >
             🚪 Logout
           </Text>
@@ -293,16 +600,12 @@ export default function Profile() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor:
-      colors.background,
   },
 
   loader: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor:
-      colors.background,
   },
 
   profileCard: {
@@ -402,5 +705,20 @@ const styles = StyleSheet.create({
     color: "#FFF",
     fontWeight: "900",
     textAlign: "center",
+  },
+  settingsButton: {
+    position: "absolute",
+    top: 15,
+    right: 15,
+    backgroundColor: "#163A63",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+
+  settingsText: {
+    color: "#2D8CFF",
+    fontWeight: "700",
+    fontSize: 13,
   },
 });

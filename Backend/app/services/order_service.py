@@ -62,10 +62,6 @@ async def create_order(
             employee.expo_push_token,
             "New Order",
             f"Order #{order.id} received",
-            {
-                "type": "order",
-                "order_id": order.id
-            }
 )
 
     return enriched

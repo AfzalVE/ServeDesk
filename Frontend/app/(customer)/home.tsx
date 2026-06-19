@@ -11,15 +11,24 @@ import {
   AppState,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
-import { colors } from "../../constants/theme";
 import { useRouter } from "expo-router";
 import { RefreshControl } from "react-native";
+import {
+  darkTheme,
+  lightTheme,
+} from "../../constants/theme";
+
+import {
+  useColorScheme,
+} from "react-native";
+
 
 import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { API_URL } from "../../config/api";
 export default function Home() {
+
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
   const [user, setUser] = useState<any>(null);
@@ -41,161 +50,199 @@ export default function Home() {
 
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
 
+  const [theme, setTheme] = useState("dark");
+  const deviceTheme = useColorScheme();
+
   // comments + quantity
   const [comments, setComments] = useState<{ [key: number]: string }>({});
   const [qty, setQty] = useState<{ [key: number]: number }>({});
   const insets = useSafeAreaInsets();
 
-const connectSockets = () => {
-  if (!user?.id) return;
-
-  console.log("🔄 Reconnecting Customer Sockets");
-
-  // Close existing sockets first
-  ticketSocket.current?.close();
-  orderSocket.current?.close();
-
-  // =========================
-  // TICKET SOCKET
-  // =========================
-
-  ticketSocket.current = new WebSocket(
-    API_URL.replace("http", "ws") + "/ws/tickets"
-  );
-
-  ticketSocket.current.onopen = () => {
-    console.log("✅ Customer Ticket WS Connected");
-  };
-
-  ticketSocket.current.onmessage = (event) => {
-    console.log("📩 Ticket WS:", event.data);
-
+  const connectSockets = () => {
     if (!user?.id) return;
 
-    fetchActiveTicket(user.id);
-  };
+    console.log("🔄 Reconnecting Customer Sockets");
 
-  ticketSocket.current.onerror = (error) => {
-    console.log("❌ Ticket WS Error:", error);
-  };
+    // Close existing sockets first
+    ticketSocket.current?.close();
+    orderSocket.current?.close();
 
-  ticketSocket.current.onclose = () => {
-    console.log("🔌 Ticket WS Closed");
-  };
+    // =========================
+    // TICKET SOCKET
+    // =========================
 
-  // =========================
-  // ORDER SOCKET
-  // =========================
+    ticketSocket.current = new WebSocket(
+      API_URL.replace("http", "ws") + "/ws/tickets"
+    );
 
-  orderSocket.current = new WebSocket(
-    API_URL.replace("http", "ws") + "/ws/orders"
-  );
+    ticketSocket.current.onopen = () => {
+      console.log("✅ Customer Ticket WS Connected");
+    };
 
-  orderSocket.current.onopen = () => {
-    console.log("✅ Customer Order WS Connected");
-  };
+    ticketSocket.current.onmessage = (event) => {
+      console.log("📩 Ticket WS:", event.data);
 
-  orderSocket.current.onmessage = async (event) => {
-    console.log("📦 Order WS:", event.data);
+      if (!user?.id) return;
 
-    try {
-      const data = JSON.parse(event.data);
+      fetchActiveTicket(user.id);
+    };
 
-      if (
-        data.event === "order_created" ||
-        data.event === "order_updated" ||
-        data.event === "order_assigned"
-      ) {
-        await loadTodayAnnouncements();
+    ticketSocket.current.onerror = (error) => {
+      console.log("❌ Ticket WS Error:", error);
+    };
 
-        if (user?.id) {
-          await fetchActiveTicket(user.id);
+    ticketSocket.current.onclose = () => {
+      console.log("🔌 Ticket WS Closed");
+    };
+
+    // =========================
+    // ORDER SOCKET
+    // =========================
+
+    orderSocket.current = new WebSocket(
+      API_URL.replace("http", "ws") + "/ws/orders"
+    );
+
+    orderSocket.current.onopen = () => {
+      console.log("✅ Customer Order WS Connected");
+    };
+
+    orderSocket.current.onmessage = async (event) => {
+      console.log("📦 Order WS:", event.data);
+
+      try {
+        const data = JSON.parse(event.data);
+
+        if (
+          data.event === "order_created" ||
+          data.event === "order_updated" ||
+          data.event === "order_assigned"
+        ) {
+          await loadTodayAnnouncements();
+
+          if (user?.id) {
+            await fetchActiveTicket(user.id);
+          }
         }
+      } catch (err) {
+        console.log(err);
       }
-    } catch (err) {
-      console.log(err);
-    }
-  };
+    };
 
-  orderSocket.current.onerror = (error) => {
-    console.log("❌ Order WS Error:", error);
-  };
+    orderSocket.current.onerror = (error) => {
+      console.log("❌ Order WS Error:", error);
+    };
 
-  orderSocket.current.onclose = () => {
-    console.log("🔌 Order WS Closed");
+    orderSocket.current.onclose = () => {
+      console.log("🔌 Order WS Closed");
+    };
   };
-};
 
   // =========================
   // LOAD DATA
   // =========================
+  useFocusEffect(
+    React.useCallback(() => {
+      loadTheme();
+    }, [])
+  );
+
+
+  const loadTheme = async () => {
+
+    try {
+
+      const savedTheme =
+        await AsyncStorage.getItem(
+          "theme"
+        );
+
+
+      if (savedTheme) {
+        setTheme(savedTheme);
+      }
+
+    }
+    catch (error) {
+      console.log(error);
+    }
+
+  };
+  const currentTheme =
+    theme === "light"
+      ? lightTheme
+      : theme === "dark"
+        ? darkTheme
+        : deviceTheme === "light"
+          ? lightTheme
+          : darkTheme;
   useEffect(() => {
     loadAll();
   }, []);
+  const stylesObj =styles(currentTheme);
 
+  useEffect(() => {
+    if (!user?.id) return;
 
-useEffect(() => {
-  if (!user?.id) return;
+    connectSockets();
+  }, [user?.id]);
 
-  connectSockets();
-}, [user?.id]);
+  useEffect(() => {
+    const subscription = AppState.addEventListener(
+      "change",
+      (nextState) => {
+        console.log("📱 App State:", nextState);
 
-useEffect(() => {
-  const subscription = AppState.addEventListener(
-    "change",
-    (nextState) => {
-      console.log("📱 App State:", nextState);
-
-      if (nextState === "active") {
-        console.log(
-          "🔄 App returned to foreground"
-        );
-
-        const ticketClosed =
-          !ticketSocket.current ||
-          ticketSocket.current.readyState ===
-            WebSocket.CLOSED;
-
-        const orderClosed =
-          !orderSocket.current ||
-          orderSocket.current.readyState ===
-            WebSocket.CLOSED;
-
-        console.log(
-          "Ticket State:",
-          ticketSocket.current?.readyState
-        );
-
-        console.log(
-          "Order State:",
-          orderSocket.current?.readyState
-        );
-
-        if (ticketClosed || orderClosed) {
+        if (nextState === "active") {
           console.log(
-            "♻️ Reconnecting sockets..."
+            "🔄 App returned to foreground"
           );
 
-          connectSockets();
+          const ticketClosed =
+            !ticketSocket.current ||
+            ticketSocket.current.readyState ===
+            WebSocket.CLOSED;
+
+          const orderClosed =
+            !orderSocket.current ||
+            orderSocket.current.readyState ===
+            WebSocket.CLOSED;
+
+          console.log(
+            "Ticket State:",
+            ticketSocket.current?.readyState
+          );
+
+          console.log(
+            "Order State:",
+            orderSocket.current?.readyState
+          );
+
+          if (ticketClosed || orderClosed) {
+            console.log(
+              "♻️ Reconnecting sockets..."
+            );
+
+            connectSockets();
+          }
         }
       }
-    }
-  );
+    );
 
-  return () => {
-    subscription.remove();
-  };
-}, [user?.id]);
+    return () => {
+      subscription.remove();
+    };
+  }, [user?.id]);
 
-useEffect(() => {
-  return () => {
-    ticketSocket.current?.close();
-    orderSocket.current?.close();
+  useEffect(() => {
+    return () => {
+      ticketSocket.current?.close();
+      orderSocket.current?.close();
 
-    ticketSocket.current = null;
-    orderSocket.current = null;
-  };
-}, []);
+      ticketSocket.current = null;
+      orderSocket.current = null;
+    };
+  }, []);
   const loadAll = async () => {
     try {
       setLoading(true);
@@ -246,28 +293,40 @@ useEffect(() => {
       setLoading(false);
     }
   };
-  const getTicketStatus = (ticket: any) => {
+  const getTicketStatus = (
+    ticket: any,
+    theme: any
+  ) => {
+
     switch (ticket?.status) {
+
       case "ACCEPTED":
+
         return {
           label: "✅ Accepted",
-          color: colors.success,
+          color: theme.success,
         };
+
 
       case "REJECTED":
+
         return {
           label: "❌ Rejected",
-          color: colors.danger,
+          color: theme.danger,
         };
 
+
       default:
+
         return {
           label: "⏳ Waiting for response",
-          color: colors.warning,
+          color: theme.warning,
         };
+
     }
+
   };
-  const statusUI = getTicketStatus(activeTicket);
+  const statusUI = getTicketStatus(activeTicket, currentTheme);
 
   // =========================
   // EMPLOYEE TOGGLE
@@ -487,7 +546,7 @@ useEffect(() => {
   // =========================
   if (loading) {
     return (
-      <View style={styles.loader}>
+      <View style={stylesObj.loader}>
         <ActivityIndicator size="large" color="#2D8CFF" />
       </View>
     );
@@ -495,9 +554,9 @@ useEffect(() => {
 
   return (
     <ScrollView
-      style={styles.container}
+      style={stylesObj.container}
       contentContainerStyle={[
-        styles.scrollContent,
+        stylesObj.scrollContent,
         { paddingBottom: insets.bottom + 120 }
       ]}
       showsVerticalScrollIndicator={false}
@@ -511,46 +570,46 @@ useEffect(() => {
     >
 
       {/* HEADER */}
-      <View style={styles.header}>
-        <Text style={styles.welcome}>👋 Welcome Back</Text>
-        <Text style={styles.name}>{user?.name}</Text>
-        <Text style={styles.sub}>What would you like today?</Text>
+      <View style={stylesObj.header}>
+        <Text style={stylesObj.welcome}>👋 Welcome Back</Text>
+        <Text style={stylesObj.name}>{user?.name}</Text>
+        <Text style={stylesObj.sub}>What would you like today?</Text>
       </View>
       {/* TODAY ANNOUNCEMENTS */}
 
-      <View style={styles.announcementContainer}>
-        <Text style={styles.sectionTitle}>
+      <View style={stylesObj.announcementContainer}>
+        <Text style={stylesObj.sectionTitle}>
           📢 Today's Announcements
         </Text>
 
         {announcements.length === 0 ? (
-          <View style={styles.emptyAnnouncement}>
-            <Text style={styles.emptyAnnouncementText}>
+          <View style={stylesObj.emptyAnnouncement}>
+            <Text style={stylesObj.emptyAnnouncementText}>
               No announcements for today
             </Text>
           </View>
         ) : (
           <ScrollView
-            style={styles.announcementScroll}
+            style={stylesObj.announcementScroll}
             nestedScrollEnabled
             showsVerticalScrollIndicator={false}
           >
             {announcements.map((item) => (
               <View
                 key={item.id}
-                style={styles.announcementCard}
+                style={stylesObj.announcementCard}
               >
                 <View
-                  style={styles.announcementTop}
+                  style={stylesObj.announcementTop}
                 >
                   <View
                     style={
-                      styles.announcementIcon
+                      stylesObj.announcementIcon
                     }
                   >
                     <Text
                       style={
-                        styles.announcementEmoji
+                        stylesObj.announcementEmoji
                       }
                     >
                       📢
@@ -560,7 +619,7 @@ useEffect(() => {
                   <View style={{ flex: 1 }}>
                     <Text
                       style={
-                        styles.announcementTitle
+                        stylesObj.announcementTitle
                       }
                     >
                       {item.title}
@@ -568,7 +627,7 @@ useEffect(() => {
 
                     <Text
                       style={
-                        styles.announcementMessage
+                        stylesObj.announcementMessage
                       }
                     >
                       {item.message}
@@ -576,7 +635,7 @@ useEffect(() => {
 
                     <Text
                       style={
-                        styles.announcementDate
+                        stylesObj.announcementDate
                       }
                     >
                       {item.created_at
@@ -593,23 +652,23 @@ useEffect(() => {
         )}
       </View>
       {/* CALL EMPLOYEE */}
-      <View style={styles.section}>
+      <View style={stylesObj.section}>
         <TouchableOpacity
-          style={styles.callBtn}
+          style={stylesObj.callBtn}
           onPress={handleCallEmployee}
         >
-          <Text style={styles.callText}>📞 Call Employee</Text>
+          <Text style={stylesObj.callText}>📞 Call Employee</Text>
         </TouchableOpacity>
 
         {showEmployees && (
           <View style={{ marginTop: 15 }}>
-            <Text style={styles.sectionTitle}>
+            <Text style={stylesObj.sectionTitle}>
               Available Employees
             </Text>
 
             {employees.length === 0 ? (
-              <View style={styles.emptyCard}>
-                <Text style={styles.empSub}>
+              <View style={stylesObj.emptyCard}>
+                <Text style={stylesObj.empSub}>
                   No employees available
                 </Text>
               </View>
@@ -617,27 +676,27 @@ useEffect(() => {
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.employeeScroll}
+                contentContainerStyle={stylesObj.employeeScroll}
               >
                 {employees.map((emp) => (
                   <TouchableOpacity
                     key={emp.id}
                     style={[
-                      styles.empCard,
+                      stylesObj.empCard,
                       selectedEmployee?.id === emp.id &&
-                      styles.empActive,
+                      stylesObj.empActive,
                     ]}
                     onPress={() => raiseTicket(emp)}
                   >
-                    <Text style={styles.empName}>
+                    <Text style={stylesObj.empName}>
                       👤 {emp.full_name}
                     </Text>
 
-                    <Text style={styles.empSub}>
+                    <Text style={stylesObj.empSub}>
                       Employee ID : {emp.employee_id}
                     </Text>
 
-                    <Text style={styles.empSub}>
+                    <Text style={stylesObj.empSub}>
                       Status : 🟢 Available
                     </Text>
 
@@ -658,29 +717,29 @@ useEffect(() => {
         )}
       </View>
       {activeTicket && (
-        <View style={styles.ticketCard}>
-          <Text style={styles.ticketTitle}>
+        <View style={stylesObj.ticketCard}>
+          <Text style={stylesObj.ticketTitle}>
             🎫 Active Support Ticket
           </Text>
           {
             activeTickets.length > 1 && (
               <TouchableOpacity
-                style={styles.activeTicketsButton}
+                style={stylesObj.activeTicketsButton}
                 onPress={() =>
                   router.push("/(customer)/active_tickets")
                 }
               >
-                <View style={styles.activeTicketsRow}>
-                  <Text style={styles.activeTicketsIcon}>
+                <View style={stylesObj.activeTicketsRow}>
+                  <Text style={stylesObj.activeTicketsIcon}>
                     🎫
                   </Text>
 
-                  <Text style={styles.activeTicketsText}>
+                  <Text style={stylesObj.activeTicketsText}>
                     View All Active Tickets
                   </Text>
 
-                  <View style={styles.ticketCountBadge}>
-                    <Text style={styles.ticketCountText}>
+                  <View style={stylesObj.ticketCountBadge}>
+                    <Text style={stylesObj.ticketCountText}>
                       {activeTickets.length}
                     </Text>
                   </View>
@@ -690,28 +749,28 @@ useEffect(() => {
           }
 
           {/* Requested Employee */}
-          <Text style={styles.ticketText}>
+          <Text style={stylesObj.ticketText}>
             Requested Employee:
           </Text>
 
-          <Text style={styles.ticketValue}>
+          <Text style={stylesObj.ticketValue}>
             {activeTicket.requested_employee_name}
           </Text>
 
           {/* Status */}
-          <Text style={styles.ticketText}>
+          <Text style={stylesObj.ticketText}>
             Status:
           </Text>
 
           <View
             style={[
-              styles.badge,
+              stylesObj.badge,
               {
                 backgroundColor: statusUI.color,
               },
             ]}
           >
-            <Text style={styles.badgeText}>
+            <Text style={stylesObj.badgeText}>
               {statusUI.label}
             </Text>
           </View>
@@ -719,13 +778,13 @@ useEffect(() => {
           {/* Rejected Employee */}
           {activeTicket?.rejected_employee_name && (
             <>
-              <Text style={styles.ticketText}>
+              <Text style={stylesObj.ticketText}>
                 Rejected By:
               </Text>
 
               <Text
                 style={[
-                  styles.ticketValue,
+                  stylesObj.ticketValue,
                   { color: "#FF8A80" },
                 ]}
               >
@@ -737,13 +796,13 @@ useEffect(() => {
           {/* Reject Reason */}
           {activeTicket?.reject_reason && (
             <>
-              <Text style={styles.ticketText}>
+              <Text style={stylesObj.ticketText}>
                 Rejection Reason:
               </Text>
 
               <Text
                 style={[
-                  styles.ticketValue,
+                  stylesObj.ticketValue,
                   {
                     color: "#FFB74D",
                   },
@@ -757,13 +816,13 @@ useEffect(() => {
           {/* Accepted Employee */}
           {activeTicket?.accepted_employee_name && (
             <>
-              <Text style={styles.ticketText}>
+              <Text style={stylesObj.ticketText}>
                 Accepted By:
               </Text>
 
               <Text
                 style={[
-                  styles.ticketValue,
+                  stylesObj.ticketValue,
                   { color: "#66BB6A" },
                 ]}
               >
@@ -812,15 +871,15 @@ useEffect(() => {
             <>
               <TouchableOpacity
                 style={[
-                  styles.cancelButton,
+                  stylesObj.cancelButton,
                   actionLoading &&
-                  styles.disabledButton,
+                  stylesObj.disabledButton,
                 ]}
                 disabled={actionLoading}
                 onPress={cancelTicket}
               >
                 <Text
-                  style={styles.cancelButtonText}
+                  style={stylesObj.cancelButtonText}
                 >
                   {actionLoading
                     ? "Cancelling..."
@@ -828,7 +887,7 @@ useEffect(() => {
                 </Text>
               </TouchableOpacity>
 
-              <Text style={styles.ticketHint}>
+              <Text style={stylesObj.ticketHint}>
                 If one employee rejects your
                 request, another employee can
                 still accept it.
@@ -893,17 +952,17 @@ useEffect(() => {
       )}
 
       {/* PRODUCTS */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>🍔 Menu</Text>
+      <View style={stylesObj.section}>
+        <Text style={stylesObj.sectionTitle}>🍔 Menu</Text>
 
-        <View style={styles.grid}>
+        <View style={stylesObj.grid}>
           {products.map((item) => (
-            <View key={item.id} style={styles.card}>
+            <View key={item.id} style={stylesObj.card}>
 
-              <Text style={styles.productName}>{item.name}</Text>
+              <Text style={stylesObj.productName}>{item.name}</Text>
 
               {/* QUANTITY */}
-              <View style={styles.qtyRow}>
+              <View style={stylesObj.qtyRow}>
                 <TouchableOpacity
                   onPress={() =>
                     setQty((p) => ({
@@ -911,12 +970,12 @@ useEffect(() => {
                       [item.id]: Math.max(1, (p[item.id] || 1) - 1),
                     }))
                   }
-                  style={styles.qtyBtn}
+                  style={stylesObj.qtyBtn}
                 >
-                  <Text style={styles.qtyText}>-</Text>
+                  <Text style={stylesObj.qtyText}>-</Text>
                 </TouchableOpacity>
 
-                <Text style={styles.qtyNum}>
+                <Text style={stylesObj.qtyNum}>
                   {qty[item.id] || 1}
                 </Text>
 
@@ -927,9 +986,9 @@ useEffect(() => {
                       [item.id]: (p[item.id] || 1) + 1,
                     }))
                   }
-                  style={styles.qtyBtn}
+                  style={stylesObj.qtyBtn}
                 >
-                  <Text style={styles.qtyText}>+</Text>
+                  <Text style={stylesObj.qtyText}>+</Text>
                 </TouchableOpacity>
               </View>
 
@@ -937,7 +996,7 @@ useEffect(() => {
               <TextInput
                 placeholder="Extra sugar, less ice..."
                 placeholderTextColor="#7F8C9A"
-                style={styles.input}
+                style={stylesObj.input}
                 value={comments[item.id] || ""}
                 onChangeText={(text) =>
                   setComments((p) => ({ ...p, [item.id]: text }))
@@ -946,10 +1005,10 @@ useEffect(() => {
 
               {/* ORDER BTN */}
               <TouchableOpacity
-                style={styles.orderBtn}
+                style={stylesObj.orderBtn}
                 onPress={() => placeOrder(item)}
               >
-                <Text style={styles.orderText}>Order</Text>
+                <Text style={stylesObj.orderText}>Order</Text>
               </TouchableOpacity>
 
             </View>
@@ -962,94 +1021,111 @@ useEffect(() => {
 }
 
 // =========================
-// STYLES (MODERN UI)
-// =========================
-const styles = StyleSheet.create({
+// stylesObj (MODERN UI)
+const styles = (theme: any) => StyleSheet.create({
+
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: theme.background,
   },
 
   loader: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: colors.background,
+    backgroundColor: theme.background,
   },
 
+
+  // HEADER
   header: {
     padding: 20,
     margin: 15,
-    backgroundColor: "#101E2D",
+    backgroundColor: theme.card,
     borderRadius: 16,
   },
 
   welcome: {
-    color: "#64B5F6",
+    color: theme.primary,
     fontWeight: "700",
   },
 
   name: {
-    color: "#fff",
+    color: theme.text,
     fontSize: 24,
     fontWeight: "900",
     marginTop: 5,
   },
 
   sub: {
-    color: "#A8B9C8",
+    color: theme.secondaryText,
     marginTop: 5,
   },
 
+
+  // SECTIONS
   section: {
     marginHorizontal: 15,
     marginTop: 10,
   },
 
+  sectionTitle: {
+    color: theme.text,
+    fontSize: 18,
+    fontWeight: "900",
+    marginVertical: 10,
+  },
+
+
+  // EMPLOYEE
+
   callBtn: {
-    backgroundColor: "#2D8CFF",
+    backgroundColor: theme.primary,
     padding: 14,
     borderRadius: 12,
     alignItems: "center",
   },
 
   callText: {
-    color: "#fff",
+    color: theme.buttonText,
     fontWeight: "800",
   },
+
+
   employeeScroll: {
     paddingVertical: 5,
     paddingRight: 15,
   },
+
+
   empCard: {
-    backgroundColor: "#16293D",
+    backgroundColor: theme.cardSecondary,
     padding: 12,
     borderRadius: 12,
     marginRight: 12,
     width: 170,
   },
 
+
   empActive: {
     borderWidth: 2,
-    borderColor: "#2D8CFF",
+    borderColor: theme.primary,
   },
 
+
   empName: {
-    color: "#fff",
+    color: theme.text,
     fontWeight: "800",
   },
 
+
   empSub: {
-    color: "#A8B9C8",
+    color: theme.secondaryText,
     fontSize: 12,
   },
 
-  sectionTitle: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "900",
-    marginVertical: 10,
-  },
+
+  // PRODUCTS
 
   grid: {
     flexDirection: "row",
@@ -1057,19 +1133,22 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
 
+
   card: {
     width: "48%",
-    backgroundColor: "#101E2D",
+    backgroundColor: theme.card,
     padding: 12,
     borderRadius: 14,
     marginBottom: 12,
   },
 
+
   productName: {
-    color: "#fff",
+    color: theme.text,
     fontWeight: "800",
     marginBottom: 8,
   },
+
 
   qtyRow: {
     flexDirection: "row",
@@ -1078,59 +1157,73 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
 
+
   qtyBtn: {
-    backgroundColor: "#16293D",
+    backgroundColor: theme.cardSecondary,
     padding: 6,
     borderRadius: 8,
     width: 28,
     alignItems: "center",
   },
 
+
   qtyText: {
-    color: "#fff",
+    color: theme.text,
     fontWeight: "900",
   },
 
+
   qtyNum: {
-    color: "#fff",
+    color: theme.text,
     marginHorizontal: 10,
     fontWeight: "800",
   },
 
+
   input: {
-    backgroundColor: "#16293D",
-    color: "#fff",
+    backgroundColor: theme.cardSecondary,
+    color: theme.text,
     padding: 8,
     borderRadius: 10,
     fontSize: 12,
   },
 
+
   orderBtn: {
-    backgroundColor: "#2D8CFF",
+    backgroundColor: theme.primary,
     padding: 10,
     borderRadius: 10,
     marginTop: 10,
     alignItems: "center",
   },
 
+
   orderText: {
-    color: "#fff",
+    color: theme.buttonText,
     fontWeight: "800",
   },
+
+
   scrollContent: {
     paddingBottom: 120,
   },
+
+
   employeeContainer: {
     marginTop: 15,
   },
+
 
   empAvatar: {
     fontSize: 32,
     marginBottom: 8,
   },
 
+
+  // TICKET
+
   ticketCard: {
-    backgroundColor: "#101E2D",
+    backgroundColor: theme.card,
     marginHorizontal: 15,
     marginTop: 15,
     padding: 18,
@@ -1138,64 +1231,79 @@ const styles = StyleSheet.create({
     gap: 6,
   },
 
+
   ticketTitle: {
-    color: "#FFF",
+    color: theme.text,
     fontSize: 18,
     fontWeight: "900",
     marginBottom: 15,
   },
 
+
   ticketText: {
-    color: "#A8B9C8",
+    color: theme.secondaryText,
     marginTop: 8,
   },
 
+
   ticketValue: {
-    color: "#FFF",
+    color: theme.text,
     fontSize: 16,
     fontWeight: "800",
   },
 
+
   waitingBadge: {
     marginTop: 10,
-    backgroundColor: "#FFA726",
+    backgroundColor: theme.warning,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 10,
     alignSelf: "flex-start",
   },
 
+
   waitingText: {
-    color: "#FFF",
+    color: theme.white,
     fontWeight: "800",
   },
 
+
   ticketHint: {
-    color: "#64B5F6",
+    color: theme.primary,
     marginTop: 15,
     lineHeight: 20,
   },
+
+
   emptyCard: {
-    backgroundColor: "#101E2D",
+    backgroundColor: theme.card,
     padding: 15,
     borderRadius: 12,
     marginTop: 10,
   },
+
+
+  // CANCEL
+
   cancelBtn: {
-    backgroundColor: "#E53935",
+    backgroundColor: theme.danger,
     padding: 14,
     borderRadius: 12,
     alignItems: "center",
     marginTop: 15,
   },
 
+
   cancelText: {
-    color: "#fff",
+    color: theme.white,
     fontWeight: "800",
     fontSize: 15,
   },
+
+
   cancelButton: {
-    backgroundColor: "#E53935",
+    backgroundColor: theme.danger,
     paddingVertical: 14,
     paddingHorizontal: 20,
     borderRadius: 14,
@@ -1204,32 +1312,39 @@ const styles = StyleSheet.create({
     marginTop: 15,
   },
 
+
   cancelButtonText: {
-    color: "#FFFFFF",
+    color: theme.buttonText,
     fontSize: 16,
     fontWeight: "800",
   },
 
+
   disabledButton: {
     opacity: 0.6,
   },
+
+
   acceptedBadge: {
     marginTop: 10,
-    backgroundColor: "#43A047",
+    backgroundColor: theme.success,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 10,
     alignSelf: "flex-start",
   },
 
+
   rejectedBadge: {
     marginTop: 10,
-    backgroundColor: "#E53935",
+    backgroundColor: theme.danger,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 10,
     alignSelf: "flex-start",
   },
+
+
   badge: {
     marginTop: 10,
     paddingHorizontal: 12,
@@ -1238,76 +1353,95 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
   },
 
+
   badgeText: {
-    color: "#FFF",
+    color: theme.white,
     fontWeight: "800",
   },
+
+
+  // ANNOUNCEMENT
+
   announcementContainer: {
     marginHorizontal: 15,
     marginTop: 15,
   },
 
+
   announcementScroll: {
     maxHeight: 280,
   },
 
+
   announcementCard: {
-    backgroundColor: "#101E2D",
+    backgroundColor: theme.card,
     padding: 18,
     borderRadius: 18,
     marginBottom: 12,
     borderLeftWidth: 5,
-    borderLeftColor: "#FFC107",
+    borderLeftColor: theme.warning,
   },
+
 
   announcementTop: {
     flexDirection: "row",
   },
 
+
   announcementIcon: {
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: "#163A63",
+    backgroundColor: theme.primaryLight,
     justifyContent: "center",
     alignItems: "center",
     marginRight: 15,
   },
 
+
   announcementEmoji: {
     fontSize: 22,
   },
 
+
   announcementTitle: {
-    color: "#FFF",
+    color: theme.text,
     fontSize: 17,
     fontWeight: "900",
   },
 
+
   announcementMessage: {
-    color: "#D6E4F0",
+    color: theme.text,
     marginTop: 8,
     lineHeight: 22,
   },
 
+
   announcementDate: {
-    color: "#6F8399",
+    color: theme.secondaryText,
     marginTop: 10,
     fontSize: 11,
   },
 
+
   emptyAnnouncement: {
-    backgroundColor: "#101E2D",
+    backgroundColor: theme.card,
     padding: 20,
     borderRadius: 16,
   },
 
+
   emptyAnnouncementText: {
-    color: "#AAA",
+    color: theme.secondaryText,
     textAlign: "center",
   },
+
+
+  // ACTIVE TICKETS
+
   activeTicketsButton: {
-    backgroundColor: "#2D8CFF",
+    backgroundColor: theme.primary,
     marginHorizontal: 15,
     marginTop: 15,
     borderRadius: 14,
@@ -1316,26 +1450,30 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
 
+
   activeTicketsRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
 
+
   activeTicketsIcon: {
     fontSize: 22,
   },
 
+
   activeTicketsText: {
     flex: 1,
-    color: "#FFFFFF",
+    color: theme.buttonText,
     fontSize: 16,
     fontWeight: "800",
     marginLeft: 12,
   },
 
+
   ticketCountBadge: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: theme.white,
     minWidth: 30,
     height: 30,
     borderRadius: 15,
@@ -1344,9 +1482,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
 
+
   ticketCountText: {
-    color: "#2D8CFF",
+    color: theme.primary,
     fontSize: 14,
     fontWeight: "900",
   },
+
 });

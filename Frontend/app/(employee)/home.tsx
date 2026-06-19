@@ -16,7 +16,18 @@ import { RefreshControl } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_URL } from "../../config/api";
 import { useRef } from "react";
-import { colors } from "../../constants/theme";
+import {
+  darkTheme,
+  lightTheme,
+} from "../../constants/theme";
+
+import {
+  useColorScheme,
+} from "react-native";
+
+import {
+  useFocusEffect,
+} from "@react-navigation/native";
 import * as Notifications from "expo-notifications";
 // =====================
 // TYPES
@@ -72,6 +83,67 @@ export default function EmployeeDashboard() {
   const cycleTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isVibrating = useRef(false);
 
+
+  //Theme
+  const [theme, setTheme] = useState("dark");
+
+  const deviceTheme = useColorScheme();
+
+
+
+  useFocusEffect(
+    React.useCallback(() => {
+
+      loadTheme();
+
+    }, [])
+  );
+
+
+
+  const loadTheme = async () => {
+
+    try {
+
+      const savedTheme =
+        await AsyncStorage.getItem("theme");
+
+
+      if (savedTheme) {
+
+        setTheme(savedTheme);
+
+      }
+
+    }
+    catch (error) {
+
+      console.log(error);
+
+    }
+
+  };
+
+
+
+  const currentTheme =
+    theme === "light"
+      ?
+      lightTheme
+      :
+      theme === "dark"
+        ?
+        darkTheme
+        :
+        deviceTheme === "light"
+          ?
+          lightTheme
+          :
+          darkTheme;
+
+
+
+  const styles = createStyles(currentTheme);
   // =====================
   // LOAD DATA
   // =====================
@@ -135,219 +207,219 @@ export default function EmployeeDashboard() {
   };
 
   const connectSockets = () => {
-  if (!user?.id) return;
+    if (!user?.id) return;
 
-  console.log("🔄 Connecting sockets...");
+    console.log("🔄 Connecting sockets...");
 
-  // Close old sockets first
-  if (ticketSocket.current) {
-    ticketSocket.current.close();
-  }
-
-  if (orderSocket.current) {
-    orderSocket.current.close();
-  }
-
-  // =====================
-  // TICKET SOCKET
-  // =====================
-
-  ticketSocket.current = new WebSocket(
-    API_URL.replace(/^http/, "ws") + "/ws/tickets"
-  );
-
-  ticketSocket.current.onopen = () => {
-    console.log("✅ Ticket WS Connected");
-  };
-
-  ticketSocket.current.onmessage = async (event) => {
-    try {
-      const parsed = JSON.parse(event.data);
-
-      console.log("🎫 Ticket WS:", parsed);
-
-      const ticket = parsed.ticket;
-
-      if (
-        parsed.event === "ticket_created" &&
-        ticket?.requested_employee_id === user.id
-      ) {
-        await Notifications.scheduleNotificationAsync({
-          content: {
-            title: "New Ticket",
-            body:
-              ticket.message ||
-              "A ticket has been assigned to you",
-            data: {
-              type: "ticket",
-            },
-          },
-          trigger: null,
-        });
-
-        startTicketVibration();
-      }
-
-      if (parsed.event === "ticket_accepted") {
-        stopTicketVibration();
-      }
-
-      if (parsed.event === "ticket_cancelled") {
-        stopTicketVibration();
-      }
-
-      if (
-        parsed.event === "ticket_rejected" &&
-        ticket?.rejected_employee_id === user.id
-      ) {
-        stopTicketVibration();
-      }
-
-      if (
-        parsed.event === "ticket_rejected" &&
-        parsed.employee_ids?.includes(user.id)
-      ) {
-        await Notifications.scheduleNotificationAsync({
-          content: {
-            title: "New Ticket",
-            body:
-              ticket.message ||
-              "A ticket has been assigned to you",
-            data: {
-              type: "ticket",
-            },
-          },
-          trigger: null,
-        });
-
-        startTicketVibration();
-      }
-
-      fetchData();
-    } catch (err) {
-      console.log("Ticket WS Parse Error:", err);
-    }
-  };
-
-  ticketSocket.current.onerror = (error) => {
-    console.log("❌ Ticket WS Error:", error);
-  };
-
-  ticketSocket.current.onclose = () => {
-    console.log("❌ Ticket WS Closed");
-  };
-
-  // =====================
-  // ORDER SOCKET
-  // =====================
-
-  orderSocket.current = new WebSocket(
-    API_URL.replace(/^http/, "ws") + "/ws/orders"
-  );
-
-  orderSocket.current.onopen = () => {
-    console.log("✅ Order WS Connected Employee");
-  };
-
-  orderSocket.current.onmessage = async (event) => {
-    try {
-      const parsed = JSON.parse(event.data);
-
-      console.log("📦 Order WS:", parsed);
-
-      if (parsed.type === "order_created") {
-        await Notifications.scheduleNotificationAsync({
-          content: {
-            title: "New Order",
-            body: `Order #${parsed.order?.id} received`,
-            data: {
-              type: "order",
-            },
-          },
-          trigger: null,
-        });
-
-        Vibration.vibrate(500);
-
-        Alert.alert(
-          "New Order",
-          `Order #${parsed.order?.id} received`
-        );
-      }
-
-      fetchData();
-    } catch (err) {
-      console.log("Order WS Parse Error:", err);
-    }
-  };
-
-  orderSocket.current.onerror = (error) => {
-    console.log("❌ Order WS Error:", error);
-  };
-
-  orderSocket.current.onclose = () => {
-    console.log("❌ Employee Order WS Closed");
-  };
-};
-useEffect(() => {
-  if (!user?.id) return;
-
-  connectSockets();
-}, [user?.id]);
-  useEffect(() => {
-    initialize();
-  }, []);
-  useEffect(() => {
-  const subscription = AppState.addEventListener(
-    "change",
-    (nextState) => {
-      console.log("📱 App State:", nextState);
-
-      if (nextState === "active") {
-        console.log(
-          "🔄 App returned to foreground"
-        );
-
-        const orderClosed =
-          !orderSocket.current ||
-          orderSocket.current.readyState ===
-            WebSocket.CLOSED;
-
-        const ticketClosed =
-          !ticketSocket.current ||
-          ticketSocket.current.readyState ===
-            WebSocket.CLOSED;
-
-        if (orderClosed || ticketClosed) {
-          console.log(
-            "♻️ Reconnecting closed sockets..."
-          );
-
-          connectSockets();
-        }
-      }
-    }
-  );
-
-  return () => {
-    subscription.remove();
-  };
-}, [user?.id]);
-useEffect(() => {
-  return () => {
-    stopTicketVibration();
-
+    // Close old sockets first
     if (ticketSocket.current) {
       ticketSocket.current.close();
-      ticketSocket.current = null;
     }
 
     if (orderSocket.current) {
       orderSocket.current.close();
-      orderSocket.current = null;
     }
+
+    // =====================
+    // TICKET SOCKET
+    // =====================
+
+    ticketSocket.current = new WebSocket(
+      API_URL.replace(/^http/, "ws") + "/ws/tickets"
+    );
+
+    ticketSocket.current.onopen = () => {
+      console.log("✅ Ticket WS Connected");
+    };
+
+    ticketSocket.current.onmessage = async (event) => {
+      try {
+        const parsed = JSON.parse(event.data);
+
+        console.log("🎫 Ticket WS:", parsed);
+
+        const ticket = parsed.ticket;
+
+        if (
+          parsed.event === "ticket_created" &&
+          ticket?.requested_employee_id === user.id
+        ) {
+          await Notifications.scheduleNotificationAsync({
+            content: {
+              title: "New Ticket",
+              body:
+                ticket.message ||
+                "A ticket has been assigned to you",
+              data: {
+                type: "ticket",
+              },
+            },
+            trigger: null,
+          });
+
+          startTicketVibration();
+        }
+
+        if (parsed.event === "ticket_accepted") {
+          stopTicketVibration();
+        }
+
+        if (parsed.event === "ticket_cancelled") {
+          stopTicketVibration();
+        }
+
+        if (
+          parsed.event === "ticket_rejected" &&
+          ticket?.rejected_employee_id === user.id
+        ) {
+          stopTicketVibration();
+        }
+
+        if (
+          parsed.event === "ticket_rejected" &&
+          parsed.employee_ids?.includes(user.id)
+        ) {
+          await Notifications.scheduleNotificationAsync({
+            content: {
+              title: "New Ticket",
+              body:
+                ticket.message ||
+                "A ticket has been assigned to you",
+              data: {
+                type: "ticket",
+              },
+            },
+            trigger: null,
+          });
+
+          startTicketVibration();
+        }
+
+        fetchData();
+      } catch (err) {
+        console.log("Ticket WS Parse Error:", err);
+      }
+    };
+
+    ticketSocket.current.onerror = (error) => {
+      console.log("❌ Ticket WS Error:", error);
+    };
+
+    ticketSocket.current.onclose = () => {
+      console.log("❌ Ticket WS Closed");
+    };
+
+    // =====================
+    // ORDER SOCKET
+    // =====================
+
+    orderSocket.current = new WebSocket(
+      API_URL.replace(/^http/, "ws") + "/ws/orders"
+    );
+
+    orderSocket.current.onopen = () => {
+      console.log("✅ Order WS Connected Employee");
+    };
+
+    orderSocket.current.onmessage = async (event) => {
+      try {
+        const parsed = JSON.parse(event.data);
+
+        console.log("📦 Order WS:", parsed);
+
+        if (parsed.type === "order_created") {
+          await Notifications.scheduleNotificationAsync({
+            content: {
+              title: "New Order",
+              body: `Order #${parsed.order?.id} received`,
+              data: {
+                type: "order",
+              },
+            },
+            trigger: null,
+          });
+
+          Vibration.vibrate(500);
+
+          Alert.alert(
+            "New Order",
+            `Order #${parsed.order?.id} received`
+          );
+        }
+
+        fetchData();
+      } catch (err) {
+        console.log("Order WS Parse Error:", err);
+      }
+    };
+
+    orderSocket.current.onerror = (error) => {
+      console.log("❌ Order WS Error:", error);
+    };
+
+    orderSocket.current.onclose = () => {
+      console.log("❌ Employee Order WS Closed");
+    };
   };
-}, []);
+  useEffect(() => {
+    if (!user?.id) return;
+
+    connectSockets();
+  }, [user?.id]);
+  useEffect(() => {
+    initialize();
+  }, []);
+  useEffect(() => {
+    const subscription = AppState.addEventListener(
+      "change",
+      (nextState) => {
+        console.log("📱 App State:", nextState);
+
+        if (nextState === "active") {
+          console.log(
+            "🔄 App returned to foreground"
+          );
+
+          const orderClosed =
+            !orderSocket.current ||
+            orderSocket.current.readyState ===
+            WebSocket.CLOSED;
+
+          const ticketClosed =
+            !ticketSocket.current ||
+            ticketSocket.current.readyState ===
+            WebSocket.CLOSED;
+
+          if (orderClosed || ticketClosed) {
+            console.log(
+              "♻️ Reconnecting closed sockets..."
+            );
+
+            connectSockets();
+          }
+        }
+      }
+    );
+
+    return () => {
+      subscription.remove();
+    };
+  }, [user?.id]);
+  useEffect(() => {
+    return () => {
+      stopTicketVibration();
+
+      if (ticketSocket.current) {
+        ticketSocket.current.close();
+        ticketSocket.current = null;
+      }
+
+      if (orderSocket.current) {
+        orderSocket.current.close();
+        orderSocket.current = null;
+      }
+    };
+  }, []);
 
 
   const initialize = async () => {
@@ -486,7 +558,7 @@ useEffect(() => {
     return (
 
       <View style={styles.loader}>
-        <ActivityIndicator size="large" color="#2D8CFF" />
+        <ActivityIndicator size="large" color={currentTheme.primary} />
         <Text style={styles.loaderText}>Loading dashboard...</Text>
       </View>
 
@@ -502,8 +574,13 @@ useEffect(() => {
         <RefreshControl
           refreshing={refreshing}
           onRefresh={onRefresh}
-          colors={["#2D8CFF"]}
-          tintColor="#2D8CFF"
+          colors={[
+            currentTheme.primary
+          ]}
+
+          tintColor={
+            currentTheme.primary
+          }
         />
       }
       contentContainerStyle={{
@@ -578,26 +655,29 @@ useEffect(() => {
         tickets.slice(0, 5).map((ticket) => {
           const isAccepted =
             ticket.status === "ACCEPTED";
-
           const cardColor = isAccepted
-            ? "#1A2A1A"
-            : "#1A0F0F";
+            ? currentTheme.cardDark
+            : currentTheme.card;
+
 
           const borderColor = isAccepted
-            ? "#43A047"
-            : "#E53935";
+            ? currentTheme.success
+            : currentTheme.danger;
+
 
           const shadowColor = isAccepted
-            ? "#43A047"
-            : "#E53935";
+            ? currentTheme.success
+            : currentTheme.danger;
+
 
           const badgeColor = isAccepted
-            ? "#2E7D32"
-            : "#B71C1C";
+            ? currentTheme.success
+            : currentTheme.danger;
+
 
           const titleColor = isAccepted
-            ? "#66BB6A"
-            : "#FF6B6B";
+            ? currentTheme.success
+            : currentTheme.danger;
 
           return (
             <View
@@ -687,12 +767,17 @@ useEffect(() => {
                     {
                       backgroundColor:
                         isAccepted
-                          ? "#203320"
-                          : "#311515",
+                          ?
+                          currentTheme.cardDark
+                          :
+                          currentTheme.surface,
+
                       borderLeftColor:
                         isAccepted
-                          ? "#43A047"
-                          : "#FF5252",
+                          ?
+                          currentTheme.success
+                          :
+                          currentTheme.danger,
                     },
                   ]}
                 >
@@ -741,8 +826,9 @@ useEffect(() => {
                       <>
                         <TextInput
                           placeholder="Enter rejection reason..."
-                          placeholderTextColor="#999"
-                          style={styles.rejectInput}
+                          placeholderTextColor={
+                            currentTheme.mutedText
+                          } style={styles.rejectInput}
                           value={rejectReason}
                           onChangeText={
                             setRejectReason
@@ -831,358 +917,369 @@ useEffect(() => {
 // =====================
 // STYLES
 // =====================
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
+const createStyles = (theme: any) =>
 
-  loader: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  loaderText: {
-    color: "#B5C4D4",
-    marginTop: 10,
-  },
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.background,
+    },
+    loader: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+      backgroundColor: theme.background,
+    },
 
 
-
-
-
-  statNum: {
-    color: "#fff",
-    fontSize: 22,
-    fontWeight: "900",
-  },
+    loaderText: {
+      color: theme.secondaryText,
+      marginTop: 10,
+    },
+    statNum: {
+      color: "#fff",
+      fontSize: 22,
+      fontWeight: "900",
+    },
 
 
 
-  actionRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 15,
-  },
+    actionRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      paddingHorizontal: 15,
+    },
 
-  actionBtn: {
-    flex: 1,
-    marginHorizontal: 5,
-    backgroundColor: "#2D8CFF",
-    padding: 12,
-    borderRadius: 12,
-    alignItems: "center",
-  },
-
-
-  card: {
-    backgroundColor: "#101E2D",
-    marginHorizontal: 20,
-    padding: 15,
-    borderRadius: 14,
-    marginBottom: 10,
-  },
-
-  cardTitle: {
-    color: "#fff",
-    fontWeight: "800",
-  },
-
-  cardSub: {
-    color: "#9DB1C7",
-    marginTop: 5,
-  },
+    actionBtn: {
+      flex: 1,
+      marginHorizontal: 5,
+      backgroundColor: "#2D8CFF",
+      padding: 12,
+      borderRadius: 12,
+      alignItems: "center",
+    },
 
 
+    card: {
+      backgroundColor: "#101E2D",
+      marginHorizontal: 20,
+      padding: 15,
+      borderRadius: 14,
+      marginBottom: 10,
+    },
 
-  ticketText: {
-    color: "#fff",
-  },
+    cardTitle: {
+      color: "#fff",
+      fontWeight: "800",
+    },
 
-  footer: {
-    margin: 20,
-    padding: 20,
-    backgroundColor: "#101E2D",
-    borderRadius: 14,
-    alignItems: "center",
-  },
-
-  footerText: {
-    color: "#9DB1C7",
-  },
-  header: {
-    margin: 15,
-    padding: 20,
-    backgroundColor: "#101E2D",
-    borderRadius: 18,
-  },
-
-  title: {
-    color: "#FFF",
-    fontSize: 28,
-    fontWeight: "900",
-  },
-
-  subtitle: {
-    color: "#9DB1C7",
-    marginTop: 5,
-  },
-
-  statsRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 15,
-  },
-
-  statCard: {
-    flex: 1,
-    backgroundColor: "#101E2D",
-    marginHorizontal: 5,
-    padding: 18,
-    borderRadius: 16,
-    alignItems: "center",
-  },
-
-  statNumber: {
-    color: "#2D8CFF",
-    fontSize: 24,
-    fontWeight: "900",
-  },
-
-  statLabel: {
-    color: "#9DB1C7",
-    marginTop: 5,
-  },
-
-  sectionTitle: {
-    color: "#FFF",
-    fontSize: 22,
-    fontWeight: "900",
-    marginHorizontal: 15,
-    marginTop: 25,
-    marginBottom: 10,
-  },
-
-  ticketCard: {
-    backgroundColor: "#101E2D",
-    marginHorizontal: 15,
-    marginBottom: 12,
-    padding: 15,
-    borderRadius: 16,
-  },
-
-  orderCard: {
-    backgroundColor: "#101E2D",
-    marginHorizontal: 15,
-    marginBottom: 12,
-    padding: 15,
-    borderRadius: 16,
-  },
-
-  ticketTitle: {
-    color: "#FFF",
-    fontWeight: "900",
-    fontSize: 17,
-  },
-
-  orderTitle: {
-    color: "#FFF",
-    fontWeight: "900",
-    fontSize: 17,
-  },
-
-  ticketItem: {
-    color: "#B8C5D4",
-    marginTop: 5,
-  },
-
-  orderItem: {
-    color: "#B8C5D4",
-    marginTop: 5,
-  },
-
-  badge: {
-    marginTop: 12,
-    backgroundColor: "#2D8CFF",
-    alignSelf: "flex-start",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 10,
-  },
-
-  badgeText: {
-    color: "#FFF",
-    fontWeight: "800",
-  },
-
-  rejectReason: {
-    color: "#FF8A80",
-    marginTop: 8,
-  },
-
-  emptyCard: {
-    backgroundColor: "#101E2D",
-    marginHorizontal: 15,
-    padding: 20,
-    borderRadius: 16,
-  },
-
-  emptyText: {
-    color: "#9DB1C7",
-    textAlign: "center",
-  },
+    cardSub: {
+      color: "#9DB1C7",
+      marginTop: 5,
+    },
 
 
 
-  emptyAlert: {
-    backgroundColor: "#2A1111",
-    borderWidth: 2,
-    borderColor: "#E53935",
-    borderRadius: 18,
-    padding: 25,
-    alignItems: "center",
-    marginVertical: 10,
-  },
+    ticketText: {
+      color: "#fff",
+    },
 
-  emptyIcon: {
-    fontSize: 42,
-  },
+    footer: {
+      margin: 20,
+      padding: 20,
+      backgroundColor: "#101E2D",
+      borderRadius: 14,
+      alignItems: "center",
+    },
 
-  emptyTitle: {
-    color: "#FFF",
-    fontSize: 18,
-    fontWeight: "900",
-    marginTop: 10,
-  },
+    footerText: {
+      color: "#9DB1C7",
+    },
+    header: {
+      margin: 15,
+      padding: 20,
+      backgroundColor: theme.card,
+      borderRadius: 18,
+    },
 
-  alertCard: {
-    backgroundColor: "#1A0F0F",
-    borderWidth: 2,
-    borderColor: "#E53935",
-    borderRadius: 18,
-    padding: 18,
-    marginBottom: 18,
-    shadowColor: "#E53935",
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    elevation: 8,
-  },
 
-  alertHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
+    title: {
+      color: theme.text,
+      fontSize: 28,
+      fontWeight: "900",
+    },
 
-  alertIcon: {
-    fontSize: 32,
-    marginRight: 12,
-  },
 
-  alertTitle: {
-    color: "#FF6B6B",
-    fontWeight: "900",
-    fontSize: 13,
-  },
+    subtitle: {
+      color: theme.secondaryText,
+      marginTop: 5,
+    },
+    statsRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      paddingHorizontal: 15,
+    },
 
-  customerName: {
-    color: "#FFF",
-    fontSize: 22,
-    fontWeight: "900",
-  },
+    statCard: {
+      flex: 1,
+      backgroundColor: theme.card,
+      marginHorizontal: 5,
+      padding: 18,
+      borderRadius: 16,
+      alignItems: "center",
+    },
 
-  statusBadge: {
-    backgroundColor: "#B71C1C",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
 
-  statusText: {
-    color: "#FFF",
-    fontWeight: "900",
-    fontSize: 12,
-  },
+    statNumber: {
+      color: theme.primary,
+      fontSize: 24,
+      fontWeight: "900",
+    },
 
-  divider: {
-    height: 1,
-    backgroundColor: "#5A2020",
-    marginVertical: 15,
-  },
 
-  infoText: {
-    color: "#FFCACA",
-    marginTop: 6,
-    fontSize: 14,
-  },
+    statLabel: {
+      color: theme.secondaryText,
+      marginTop: 5,
+    },
 
-  infoValue: {
-    color: "#FFF",
-    fontWeight: "800",
-  },
+    sectionTitle: {
+      color: theme.text,
+      fontSize: 22,
+      fontWeight: "900",
+      marginHorizontal: 15,
+      marginTop: 25,
+      marginBottom: 10,
+    },
 
-  reasonBox: {
-    marginTop: 15,
-    backgroundColor: "#311515",
-    borderLeftWidth: 4,
-    borderLeftColor: "#FF5252",
-    padding: 12,
-    borderRadius: 10,
-  },
+    ticketCard: {
+      backgroundColor: "#101E2D",
+      marginHorizontal: 15,
+      marginBottom: 12,
+      padding: 15,
+      borderRadius: 16,
+    },
 
-  reasonTitle: {
-    color: "#FF6B6B",
-    fontWeight: "900",
-    marginBottom: 4,
-  },
+    orderCard: {
+      backgroundColor: theme.card,
+      marginHorizontal: 15,
+      marginBottom: 12,
+      padding: 15,
+      borderRadius: 16,
+    },
 
-  reasonText: {
-    color: "#FFF",
-  },
 
-  buttonRow: {
-    flexDirection: "row",
-    marginTop: 18,
-    gap: 10,
-  },
+    orderTitle: {
+      color: theme.text,
+      fontWeight: "900",
+      fontSize: 17,
+    },
 
-  acceptBtn: {
-    flex: 1,
-    backgroundColor: "#2E7D32",
-    padding: 14,
-    borderRadius: 12,
-    alignItems: "center",
-  },
 
-  rejectBtn: {
-    flex: 1,
-    backgroundColor: "#C62828",
-    padding: 14,
-    borderRadius: 12,
-    alignItems: "center",
-  },
+    orderItem: {
+      color: theme.secondaryText,
+      marginTop: 5,
+    },
+    ticketTitle: {
+      color: "#FFF",
+      fontWeight: "900",
+      fontSize: 17,
+    },
 
-  submitRejectBtn: {
-    backgroundColor: "#8B0000",
-    padding: 14,
-    borderRadius: 12,
-    alignItems: "center",
-    marginTop: 10,
-  },
 
-  actionText: {
-    color: "#FFF",
-    fontWeight: "900",
-    letterSpacing: 1,
-  },
+    ticketItem: {
+      color: "#B8C5D4",
+      marginTop: 5,
+    },
 
-  rejectInput: {
-    backgroundColor: "#2B1B1B",
-    color: "#FFF",
-    borderWidth: 1,
-    borderColor: "#E53935",
-    borderRadius: 12,
-    padding: 12,
-    marginTop: 12,
-  },
-});
+
+
+    badge: {
+      marginTop: 12,
+      backgroundColor: theme.primary,
+      alignSelf: "flex-start",
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 10,
+    },
+
+
+    badgeText: {
+      color: theme.buttonText,
+      fontWeight: "800",
+    },
+
+    rejectReason: {
+      color: "#FF8A80",
+      marginTop: 8,
+    },
+
+    emptyCard: {
+      backgroundColor: "#101E2D",
+      marginHorizontal: 15,
+      padding: 20,
+      borderRadius: 16,
+    },
+
+    emptyText: {
+      color: "#9DB1C7",
+      textAlign: "center",
+    },
+
+
+
+    emptyAlert: {
+      backgroundColor: theme.card,
+      borderWidth: 2,
+      borderColor: theme.danger,
+      borderRadius: 18,
+      padding: 25,
+      alignItems: "center",
+      marginVertical: 10,
+    },
+
+
+    emptyTitle: {
+      color: theme.text,
+      fontSize: 18,
+      fontWeight: "900",
+      marginTop: 10,
+    },
+
+    emptyIcon: {
+      fontSize: 42,
+    },
+
+
+
+    alertCard: {
+      backgroundColor: theme.card,
+      borderWidth: 2,
+      borderColor: theme.danger,
+      borderRadius: 18,
+      padding: 18,
+      marginBottom: 18,
+      shadowColor: theme.shadow,
+      shadowOpacity: 0.4,
+      shadowRadius: 10,
+      elevation: 8,
+    },
+    alertHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+    },
+
+    alertIcon: {
+      fontSize: 32,
+      marginRight: 12,
+    },
+
+    alertTitle: {
+      color: "#FF6B6B",
+      fontWeight: "900",
+      fontSize: 13,
+    },
+
+    customerName: {
+      color: theme.text,
+      fontSize: 22,
+      fontWeight: "900",
+    },
+
+    statusBadge: {
+      backgroundColor: "#B71C1C",
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 8,
+    },
+
+    statusText: {
+      color: "#FFF",
+      fontWeight: "900",
+      fontSize: 12,
+    },
+
+    divider: {
+      height: 1,
+      backgroundColor: "#5A2020",
+      marginVertical: 15,
+    },
+
+    infoText: {
+      color: theme.secondaryText,
+      marginTop: 6,
+      fontSize: 14,
+    },
+
+
+    infoValue: {
+      color: theme.text,
+      fontWeight: "800",
+    },
+
+    reasonBox: {
+      marginTop: 15,
+      backgroundColor: "#311515",
+      borderLeftWidth: 4,
+      borderLeftColor: "#FF5252",
+      padding: 12,
+      borderRadius: 10,
+    },
+
+    reasonTitle: {
+      color: "#FF6B6B",
+      fontWeight: "900",
+      marginBottom: 4,
+    },
+
+    reasonText: {
+      color: theme.text,
+    },
+
+    buttonRow: {
+      flexDirection: "row",
+      marginTop: 18,
+      gap: 10,
+    },
+
+    acceptBtn: {
+      flex: 1,
+      backgroundColor: theme.success,
+      padding: 14,
+      borderRadius: 12,
+      alignItems: "center",
+    },
+
+
+    rejectBtn: {
+      flex: 1,
+      backgroundColor: theme.danger,
+      padding: 14,
+      borderRadius: 12,
+      alignItems: "center",
+    },
+
+
+    actionText: {
+      color: theme.buttonText,
+      fontWeight: "900",
+      letterSpacing: 1,
+    },
+    submitRejectBtn: {
+      backgroundColor: "#8B0000",
+      padding: 14,
+      borderRadius: 12,
+      alignItems: "center",
+      marginTop: 10,
+    },
+
+
+    rejectInput: {
+      backgroundColor: theme.cardDark,
+      color: theme.text,
+      borderWidth: 1,
+      borderColor: theme.danger,
+      borderRadius: 12,
+      padding: 12,
+      marginTop: 12,
+    },
+  });

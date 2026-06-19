@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState,useEffect } from "react";
 import { Link, router } from "expo-router";
 import {
   Alert,
@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  useColorScheme,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -17,13 +18,49 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { signin } from "@/lib/auth";
 import { API_URL } from "../../config/api";
 import {registerForPushNotifications} from "../../utils/notifications";
-import { colors } from "../../constants/theme";
+import {
+  darkTheme,
+  lightTheme,
+} from "../../constants/theme";
 
 export default function SignIn() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+const deviceTheme =
+  useColorScheme();
 
+const [theme, setTheme] =
+  useState("dark");
+
+useEffect(() => {
+  loadTheme();
+}, []);
+
+const loadTheme =
+  async () => {
+    try {
+      const savedTheme =
+        await AsyncStorage.getItem(
+          "theme"
+        );
+
+      if (savedTheme) {
+        setTheme(savedTheme);
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+const currentTheme =
+  theme === "light"
+    ? lightTheme
+    : theme === "dark"
+    ? darkTheme
+    : deviceTheme === "light"
+    ? lightTheme
+    : darkTheme;
   const handleSignin = async () => {
     const userEmail = email.trim().toLowerCase();
 
@@ -132,176 +169,268 @@ export default function SignIn() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={
-          Platform.OS === "ios"
-            ? "padding"
-            : undefined
-        }
-      >
-        <ScrollView
-          contentContainerStyle={{
-            flexGrow: 1,
-            justifyContent: "center",
-          }}
-          keyboardShouldPersistTaps="handled"
+   <SafeAreaView
+  style={[
+    styles.container,
+    {
+      backgroundColor:
+        currentTheme.background,
+    },
+  ]}
+>
+  <KeyboardAvoidingView
+    style={{ flex: 1 }}
+    behavior={
+      Platform.OS === "ios"
+        ? "padding"
+        : undefined
+    }
+  >
+    <ScrollView
+      contentContainerStyle={{
+        flexGrow: 1,
+        justifyContent: "center",
+      }}
+      keyboardShouldPersistTaps="handled"
+    >
+      <View style={styles.logoBox}>
+        <Text style={styles.logo}>
+          🏢
+        </Text>
+
+        <Text
+          style={[
+            styles.title,
+            {
+              color:
+                currentTheme.text,
+            },
+          ]}
         >
-          <View style={styles.logoBox}>
-            <Text style={styles.logo}>🏢</Text>
+          ServeDesk
+        </Text>
 
-            <Text style={styles.title}>
-              ServeDesk
-            </Text>
+        <Text
+          style={[
+            styles.subtitle,
+            {
+              color:
+                currentTheme.secondaryText,
+            },
+          ]}
+        >
+          Employee Order &
+          Task Management
+        </Text>
+      </View>
 
-            <Text style={styles.subtitle}>
-              Employee Order & Task Management
-            </Text>
-          </View>
+      <View
+        style={[
+          styles.form,
+          {
+            backgroundColor:
+              currentTheme.card,
+          },
+        ]}
+      >
+        <Text
+          style={[
+            styles.label,
+            {
+              color:
+                currentTheme.text,
+            },
+          ]}
+        >
+          Email
+        </Text>
 
-          <View style={styles.form}>
-            <Text style={styles.label}>
-              Email
-            </Text>
+        <TextInput
+          style={[
+            styles.input,
+            {
+              backgroundColor:
+                currentTheme.background,
+              color:
+                currentTheme.text,
+              borderColor:
+                currentTheme.border,
+            },
+          ]}
+          placeholder="john@company.com"
+          placeholderTextColor={
+            currentTheme.secondaryText
+          }
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
 
-            <TextInput
-              style={styles.input}
-              placeholder="john@company.com"
-              placeholderTextColor="#7F8C9A"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
+        <Text
+          style={[
+            styles.label,
+            {
+              color:
+                currentTheme.text,
+            },
+          ]}
+        >
+          Password
+        </Text>
 
-            <Text style={styles.label}>
-              Password
-            </Text>
+        <TextInput
+          style={[
+            styles.input,
+            {
+              backgroundColor:
+                currentTheme.background,
+              color:
+                currentTheme.text,
+              borderColor:
+                currentTheme.border,
+            },
+          ]}
+          placeholder="Enter your password"
+          placeholderTextColor={
+            currentTheme.secondaryText
+          }
+          secureTextEntry
+          value={password}
+          onChangeText={setPassword}
+          autoCapitalize="none"
+        />
 
-            <TextInput
-              style={styles.input}
-              placeholder="Enter your password"
-              placeholderTextColor="#7F8C9A"
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-              autoCapitalize="none"
-            />
+        <TouchableOpacity
+          style={[
+            styles.button,
+            {
+              backgroundColor:
+                currentTheme.primary,
+            },
+            loading && {
+              opacity: 0.7,
+            },
+          ]}
+          disabled={loading}
+          onPress={handleSignin}
+        >
+          <Text
+            style={styles.buttonText}
+          >
+            {loading
+              ? "Signing In..."
+              : "Sign In"}
+          </Text>
+        </TouchableOpacity>
 
-            <TouchableOpacity
+        <Text
+          style={[
+            styles.bottomText,
+            {
+              color:
+                currentTheme.secondaryText,
+            },
+          ]}
+        >
+          Don't have an account?
+        </Text>
+
+        <Link
+          href="/(auth)/sign-up"
+          asChild
+        >
+          <TouchableOpacity>
+            <Text
               style={[
-                styles.button,
-                loading && {
-                  opacity: 0.7,
+                styles.link,
+                {
+                  color:
+                    currentTheme.primary,
                 },
               ]}
-              disabled={loading}
-              onPress={handleSignin}
             >
-              <Text style={styles.buttonText}>
-                {loading
-                  ? "Signing In..."
-                  : "Sign In"}
-              </Text>
-            </TouchableOpacity>
-
-            <Text style={styles.bottomText}>
-              Don't have an account?
+              Create Account
             </Text>
-
-            <Link
-              href="/(auth)/sign-up"
-              asChild
-            >
-              <TouchableOpacity>
-                <Text style={styles.link}>
-                  Create Account
-                </Text>
-              </TouchableOpacity>
-            </Link>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+          </TouchableOpacity>
+        </Link>
+      </View>
+    </ScrollView>
+  </KeyboardAvoidingView>
+</SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-    padding: 25,
-  },
+const styles =
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      padding: 25,
+    },
 
-  logoBox: {
-    alignItems: "center",
-    marginBottom: 50,
-  },
+    logoBox: {
+      alignItems: "center",
+      marginBottom: 50,
+    },
 
-  logo: {
-    fontSize: 60,
-  },
+    logo: {
+      fontSize: 60,
+    },
 
-  title: {
-    color: "#FFF",
-    fontSize: 36,
-    fontWeight: "900",
-    marginTop: 10,
-  },
+    title: {
+      fontSize: 36,
+      fontWeight: "900",
+      marginTop: 10,
+    },
 
-  subtitle: {
-    color: "#9DB1C7",
-    marginTop: 10,
-    textAlign: "center",
-  },
+    subtitle: {
+      marginTop: 10,
+      textAlign: "center",
+      fontSize: 15,
+    },
 
-  form: {
-    backgroundColor: "#101E2D",
-    padding: 22,
-    borderRadius: 20,
-  },
+    form: {
+      padding: 22,
+      borderRadius: 20,
+    },
 
-  label: {
-    color: "#FFF",
-    marginBottom: 8,
-    marginTop: 10,
-    fontWeight: "600",
-  },
+    label: {
+      marginBottom: 8,
+      marginTop: 10,
+      fontWeight: "600",
+      fontSize: 14,
+    },
 
-  input: {
-    backgroundColor: "#16293D",
-    color: "#FFF",
-    padding: 15,
-    borderRadius: 12,
-    marginBottom: 10,
-  },
+    input: {
+      padding: 15,
+      borderRadius: 12,
+      marginBottom: 10,
+      borderWidth: 1,
+      fontSize: 15,
+    },
 
-  button: {
-    backgroundColor: "#2D8CFF",
-    padding: 16,
-    borderRadius: 14,
-    marginTop: 20,
-    alignItems: "center",
-  },
+    button: {
+      padding: 16,
+      borderRadius: 14,
+      marginTop: 20,
+      alignItems: "center",
+    },
 
-  buttonText: {
-    color: "#FFF",
-    fontWeight: "800",
-    fontSize: 16,
-  },
+    buttonText: {
+      color: "#FFFFFF",
+      fontWeight: "800",
+      fontSize: 16,
+    },
 
-  bottomText: {
-    color: "#AAA",
-    marginTop: 25,
-    textAlign: "center",
-  },
+    bottomText: {
+      marginTop: 25,
+      textAlign: "center",
+    },
 
-  link: {
-    color: "#64B5F6",
-    textAlign: "center",
-    marginTop: 10,
-    fontWeight: "700",
-  },
-});
+    link: {
+      textAlign: "center",
+      marginTop: 10,
+      fontWeight: "700",
+    },
+  });

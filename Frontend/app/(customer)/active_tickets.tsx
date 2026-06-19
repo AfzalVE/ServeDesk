@@ -1,4 +1,10 @@
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, {
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+} from "react";
+
 import {
   View,
   Text,
@@ -8,341 +14,901 @@ import {
   TouchableOpacity,
   RefreshControl,
   Alert,
+  useColorScheme,
 } from "react-native";
+
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect } from "@react-navigation/native";
+
 import { API_URL } from "../../config/api";
-import { colors } from "../../constants/theme";
+
+import {
+  darkTheme,
+  lightTheme,
+} from "../../constants/theme";
+
+
 
 export default function ActiveTickets() {
-  const socket = useRef<WebSocket | null>(null);
 
-  const [tickets, setTickets] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [cancellingId, setCancellingId] = useState<number | null>(null);
+  const socket =
+    useRef<WebSocket | null>(null);
 
-  const userRef = useRef<any>(null);
+
+  const [tickets,setTickets] =
+    useState<any[]>([]);
+
+
+  const [loading,setLoading] =
+    useState(true);
+
+
+  const [refreshing,setRefreshing] =
+    useState(false);
+
+
+  const [cancellingId,setCancellingId] =
+    useState<number | null>(null);
+
+
+
+  const deviceTheme =
+    useColorScheme();
+
+
+  const [theme,setTheme] =
+    useState("dark");
+
+
+
+  const currentTheme =
+    theme === "light"
+    ? lightTheme
+    : theme === "dark"
+    ? darkTheme
+    : deviceTheme === "light"
+    ? lightTheme
+    : darkTheme;
+
+
+
+  const userRef =
+    useRef<any>(null);
+
+
+
+  // ======================
+  // LOAD THEME
+  // ======================
+
+  const loadTheme = async()=>{
+
+    try{
+
+      const savedTheme =
+        await AsyncStorage.getItem(
+          "theme"
+        );
+
+
+      if(savedTheme){
+
+        setTheme(savedTheme);
+
+      }
+
+
+    }catch(error){
+
+      console.log(error);
+
+    }
+
+  };
+
+
+
+  useFocusEffect(
+    useCallback(()=>{
+
+      loadTheme();
+
+    },[])
+  );
+
+
 
   // ======================
   // STATUS UI
   // ======================
-  const getStatus = (status: string) => {
-    switch (status) {
+
+  const getStatus = (
+    status:string
+  ) => {
+
+
+    switch(status){
+
+
       case "ACCEPTED":
-        return { label: "✅ Accepted", color: "#66BB6A" };
+
+        return {
+          label:"✅ Accepted",
+          color:"#66BB6A"
+        };
+
+
+
       case "OPEN":
-        return { label: "⏳ Waiting", color: "#FFA726" };
+
+        return {
+          label:"⏳ Waiting",
+          color:"#FFA726"
+        };
+
+
+
       case "REJECTED":
-        return { label: "❌ Rejected", color: "#EF5350" };
+
+        return {
+          label:"❌ Rejected",
+          color:"#EF5350"
+        };
+
+
+
       default:
-        return { label: status, color: "#64B5F6" };
+
+        return {
+          label:status,
+          color:currentTheme.primary
+        };
+
+
     }
+
   };
+
+
 
   // ======================
   // FETCH TICKETS
   // ======================
-  const fetchTickets = useCallback(async () => {
-    try {
-      const user = await AsyncStorage.getItem("user");
-      if (!user) return;
 
-      const userData = JSON.parse(user);
-      userRef.current = userData;
+  const fetchTickets =
+  useCallback(async()=>{
 
-      const res = await fetch(
-        `${API_URL}/tickets/customer/${userData.id}`
+
+    try{
+
+
+      const user =
+        await AsyncStorage.getItem(
+          "user"
+        );
+
+
+      if(!user)
+        return;
+
+
+
+      const userData =
+        JSON.parse(user);
+
+
+
+      userRef.current =
+        userData;
+
+
+
+      const res =
+        await fetch(
+          `${API_URL}/tickets/customer/${userData.id}`
+        );
+
+
+
+      if(!res.ok)
+        return;
+
+
+
+      const data =
+        await res.json();
+
+
+
+      setTickets(
+        Array.isArray(data)
+        ? data
+        : []
       );
 
-      if (!res.ok) return;
 
-      const data = await res.json();
-      setTickets(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.log("Fetch error:", err);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
     }
-  }, []);
 
-  // ======================
-  // INITIAL LOAD
-  // ======================
-  useEffect(() => {
-    fetchTickets();
-  }, [fetchTickets]);
+    catch(error){
 
-  // ======================
-  // WEBSOCKET SETUP
-  // ======================
-  useEffect(() => {
-    const initWS = async () => {
-      const user = await AsyncStorage.getItem("user");
-      if (!user) return;
-
-      const userData = JSON.parse(user);
-
-      socket.current = new WebSocket(
-        API_URL.replace("http", "ws") + "/ws/tickets"
+      console.log(
+        "Fetch error:",
+        error
       );
 
-      socket.current.onopen = () => {
-        console.log("✅ WebSocket Connected");
+    }
+
+    finally{
+
+      setLoading(false);
+
+      setRefreshing(false);
+
+    }
+
+
+  },[]);
+
+
+
+
+
+  useEffect(()=>{
+
+    fetchTickets();
+
+  },[
+    fetchTickets
+  ]);
+
+
+
+
+
+  // ======================
+  // WEBSOCKET
+  // ======================
+
+  useEffect(()=>{
+
+
+    const initWS =
+    async()=>{
+
+
+      const user =
+      await AsyncStorage.getItem(
+        "user"
+      );
+
+
+      if(!user)
+        return;
+
+
+
+      socket.current =
+      new WebSocket(
+        API_URL.replace(
+          "http",
+          "ws"
+        )
+        +
+        "/ws/tickets"
+      );
+
+
+
+      socket.current.onopen =
+      ()=>{
+
+        console.log(
+          "✅ Ticket WS Connected"
+        );
+
       };
 
-      socket.current.onmessage = (event) => {
-        console.log("📩 WS Update:", event.data);
 
-        // Refresh tickets whenever backend sends update
+
+      socket.current.onmessage =
+      (event)=>{
+
+
+        console.log(
+          "📩 Ticket Update:",
+          event.data
+        );
+
+
         fetchTickets();
+
       };
 
-      socket.current.onerror = (err) => {
-        console.log("❌ WS Error:", err);
+
+
+      socket.current.onerror =
+      (err)=>{
+
+        console.log(
+          "❌ WS Error",
+          err
+        );
+
       };
 
-      socket.current.onclose = () => {
-        console.log("🔌 WS Closed");
+
+
+      socket.current.onclose =
+      ()=>{
+
+        console.log(
+          "🔌 WS Closed"
+        );
+
       };
+
+
     };
+
+
 
     initWS();
 
-    return () => {
+
+
+    return()=>{
+
       socket.current?.close();
+
     };
-  }, [fetchTickets]);
+
+
+  },[
+    fetchTickets
+  ]);
+
+
+
+
 
   // ======================
-  // PULL TO REFRESH
+  // REFRESH
   // ======================
-  const onRefresh = () => {
+
+  const onRefresh = ()=>{
+
     setRefreshing(true);
+
     fetchTickets();
+
   };
 
+
+
+
+
   // ======================
-  // CANCEL TICKET
+  // CANCEL
   // ======================
-  const cancelTicket = async (id: number) => {
-    try {
+
+  const cancelTicket =
+  async(id:number)=>{
+
+
+    try{
+
+
       setCancellingId(id);
 
-      const res = await fetch(
+
+
+      const res =
+      await fetch(
         `${API_URL}/tickets/${id}/cancel`,
         {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          method:"PUT",
+          headers:{
+            "Content-Type":
+            "application/json"
+          }
         }
       );
 
-      if (!res.ok) throw new Error();
 
-      Alert.alert("Success", "Ticket cancelled");
+
+      if(!res.ok)
+        throw new Error();
+
+
+
+      Alert.alert(
+        "Success",
+        "Ticket cancelled"
+      );
+
+
 
       fetchTickets();
-    } catch (err) {
-      Alert.alert("Error", "Failed to cancel ticket");
-    } finally {
-      setCancellingId(null);
+
+
     }
+
+    catch(error){
+
+
+      Alert.alert(
+        "Error",
+        "Failed to cancel ticket"
+      );
+
+
+    }
+
+    finally{
+
+
+      setCancellingId(null);
+
+
+    }
+
+
   };
 
+
+
+
+
   // ======================
-  // CARD UI
+  // CARD
   // ======================
-  const renderItem = ({ item }: any) => {
-    const statusUI = getStatus(item.status);
+
+  const renderItem =
+  ({item}:any)=>{
+
+
+    const statusUI =
+    getStatus(
+      item.status
+    );
+
+
 
     return (
-      <View style={styles.card}>
-        {/* HEADER */}
-        <View style={styles.headerRow}>
-          <Text style={styles.title}>
+
+      <View
+
+        style={[
+          styles.card,
+          {
+            backgroundColor:
+            currentTheme.card
+          }
+        ]}
+
+      >
+
+
+        <View
+          style={styles.headerRow}
+        >
+
+
+          <Text
+
+            style={[
+              styles.title,
+              {
+                color:
+                currentTheme.text
+              }
+            ]}
+
+          >
+
             🎫 Ticket #{item.id}
+
           </Text>
 
+
+
           <View
+
             style={[
               styles.badge,
-              { backgroundColor: statusUI.color },
+              {
+                backgroundColor:
+                statusUI.color
+              }
             ]}
+
           >
-            <Text style={styles.badgeText}>
+
+            <Text
+              style={styles.badgeText}
+            >
               {statusUI.label}
             </Text>
-          </View>
-        </View>
 
-        {/* DETAILS */}
-        <Text style={styles.label}>Requested Employee</Text>
-        <Text style={styles.value}>
+
+          </View>
+
+
+        </View>
+                <Text
+          style={[
+            styles.label,
+            {
+              color:
+              currentTheme.secondaryText
+            }
+          ]}
+        >
+          Requested Employee
+        </Text>
+
+        <Text
+          style={[
+            styles.value,
+            {
+              color:
+              currentTheme.text
+            }
+          ]}
+        >
           {item.requested_employee_name}
         </Text>
 
+
         {item.accepted_employee_name && (
           <>
-            <Text style={styles.label}>Accepted By</Text>
-            <Text style={[styles.value, { color: "#66BB6A" }]}>
+            <Text
+              style={[
+                styles.label,
+                {
+                  color:
+                  currentTheme.secondaryText
+                }
+              ]}
+            >
+              Accepted By
+            </Text>
+
+            <Text
+              style={[
+                styles.value,
+                {
+                  color:"#66BB6A"
+                }
+              ]}
+            >
               {item.accepted_employee_name}
             </Text>
           </>
         )}
 
+
+
         {item.rejected_employee_name && (
           <>
-            <Text style={styles.label}>Rejected By</Text>
-            <Text style={[styles.value, { color: "#EF5350" }]}>
+            <Text
+              style={[
+                styles.label,
+                {
+                  color:
+                  currentTheme.secondaryText
+                }
+              ]}
+            >
+              Rejected By
+            </Text>
+
+            <Text
+              style={[
+                styles.value,
+                {
+                  color:"#EF5350"
+                }
+              ]}
+            >
               {item.rejected_employee_name}
             </Text>
           </>
         )}
 
+
+
         {item.reject_reason && (
           <>
-            <Text style={styles.label}>Reason</Text>
-            <Text style={[styles.value, { color: "#FFB74D" }]}>
+            <Text
+              style={[
+                styles.label,
+                {
+                  color:
+                  currentTheme.secondaryText
+                }
+              ]}
+            >
+              Reason
+            </Text>
+
+
+            <Text
+              style={[
+                styles.value,
+                {
+                  color:"#FFB74D"
+                }
+              ]}
+            >
               {item.reject_reason}
             </Text>
+
           </>
         )}
 
-        {/* CANCEL BUTTON */}
-        {item.status === "OPEN" && (
+
+
+
+        {item.status==="OPEN" && (
+
           <TouchableOpacity
+
             style={[
               styles.cancelBtn,
-              cancellingId === item.id && styles.disabledBtn,
+              {
+                backgroundColor:
+                currentTheme.danger
+              },
+
+              cancellingId===item.id &&
+              styles.disabledBtn
+
             ]}
-            disabled={cancellingId === item.id}
-            onPress={() => cancelTicket(item.id)}
+
+
+            disabled={
+              cancellingId===item.id
+            }
+
+
+            onPress={()=>
+              cancelTicket(item.id)
+            }
+
           >
-            <Text style={styles.cancelText}>
-              {cancellingId === item.id
-                ? "Cancelling..."
-                : "Cancel Ticket"}
+
+            <Text
+              style={styles.cancelText}
+            >
+
+              {
+                cancellingId===item.id
+                ?
+                "Cancelling..."
+                :
+                "Cancel Ticket"
+              }
+
             </Text>
+
+
           </TouchableOpacity>
+
         )}
+
+
       </View>
+
     );
+
   };
 
-  // ======================
-  // LOADING
-  // ======================
-  if (loading) {
+
+
+
+
+  if(loading){
+
     return (
-      <View style={styles.loader}>
-        <ActivityIndicator size="large" color="#2D8CFF" />
+
+      <View
+
+        style={[
+          styles.loader,
+          {
+            backgroundColor:
+            currentTheme.background
+          }
+        ]}
+
+      >
+
+        <ActivityIndicator
+
+          size="large"
+
+          color={
+            currentTheme.primary
+          }
+
+        />
+
       </View>
+
     );
+
   }
 
+
+
+
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.pageTitle}>🎫 Active Tickets</Text>
+
+    <View
+
+      style={[
+        styles.container,
+        {
+          backgroundColor:
+          currentTheme.background
+        }
+      ]}
+
+    >
+
+      <Text
+
+        style={[
+          styles.pageTitle,
+          {
+            color:
+            currentTheme.text
+          }
+        ]}
+
+      >
+
+        🎫 Active Tickets
+
+      </Text>
+
+
+
 
       <FlatList
+
         data={tickets}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={renderItem}
-        contentContainerStyle={{ padding: 15 }}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor="#2D8CFF"
-          />
+
+        keyExtractor={
+          item=>item.id.toString()
         }
+
+
+        renderItem={renderItem}
+
+
+        contentContainerStyle={{
+          padding:15,
+          paddingBottom:100
+        }}
+
+
+        refreshControl={
+
+          <RefreshControl
+
+            refreshing={
+              refreshing
+            }
+
+            onRefresh={
+              onRefresh
+            }
+
+            tintColor={
+              currentTheme.primary
+            }
+
+          />
+
+        }
+
       />
+
+
     </View>
+
   );
+
+
 }
-
-// ======================
-// STYLES (MATCH HOME UI)
-// ======================
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
+
+  container:{
+    flex:1,
   },
 
-  loader: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: colors.background,
+
+  loader:{
+    flex:1,
+    justifyContent:"center",
+    alignItems:"center",
   },
 
-  pageTitle: {
-    color: "#fff",
-    fontSize: 22,
-    fontWeight: "900",
-    margin: 15,
+
+  pageTitle:{
+    fontSize:22,
+    fontWeight:"900",
+    margin:15,
   },
 
-  card: {
-    backgroundColor: "#101E2D",
-    padding: 18,
-    borderRadius: 16,
-    marginBottom: 15,
+
+  card:{
+    padding:18,
+    borderRadius:16,
+    marginBottom:15,
   },
 
-  headerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 10,
+
+  headerRow:{
+    flexDirection:"row",
+    justifyContent:"space-between",
+    alignItems:"center",
+    marginBottom:10,
   },
 
-  title: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "900",
+
+  title:{
+    fontSize:16,
+    fontWeight:"900",
   },
 
-  label: {
-    color: "#8FA5B8",
-    marginTop: 8,
+
+  label:{
+    marginTop:8,
+    fontSize:13,
+    fontWeight:"600",
   },
 
-  value: {
-    color: "#fff",
-    fontSize: 15,
-    fontWeight: "700",
+
+  value:{
+    fontSize:15,
+    fontWeight:"700",
   },
 
-  badge: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 10,
+
+  badge:{
+    paddingHorizontal:10,
+    paddingVertical:5,
+    borderRadius:10,
   },
 
-  badgeText: {
-    color: "#fff",
-    fontWeight: "800",
-    fontSize: 12,
+
+  badgeText:{
+    color:"#FFFFFF",
+    fontWeight:"800",
+    fontSize:12,
   },
 
-  cancelBtn: {
-    marginTop: 15,
-    backgroundColor: "#E53935",
-    padding: 12,
-    borderRadius: 12,
-    alignItems: "center",
+
+  cancelBtn:{
+    marginTop:15,
+    padding:12,
+    borderRadius:12,
+    alignItems:"center",
   },
 
-  cancelText: {
-    color: "#fff",
-    fontWeight: "900",
+
+  cancelText:{
+    color:"#FFFFFF",
+    fontWeight:"900",
   },
 
-  disabledBtn: {
-    opacity: 0.6,
+
+  disabledBtn:{
+    opacity:0.6,
   },
+
 });

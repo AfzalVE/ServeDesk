@@ -8,6 +8,14 @@ import {
   ActivityIndicator,
   TouchableOpacity
 } from "react-native";
+import { useColorScheme } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
+import { useCallback } from "react";
+
+import {
+  darkTheme,
+  lightTheme,
+} from "../../constants/theme";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -23,7 +31,41 @@ export default function Orders() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const socket = useRef<WebSocket | null>(null);
+const [theme, setTheme] =
+  useState("dark");
 
+const deviceTheme =
+  useColorScheme();
+
+useFocusEffect(
+  useCallback(() => {
+    loadTheme();
+  }, [])
+);
+
+const loadTheme = async () => {
+  try {
+    const savedTheme =
+      await AsyncStorage.getItem(
+        "theme"
+      );
+
+    if (savedTheme) {
+      setTheme(savedTheme);
+    }
+  } catch (error) {
+    console.log(error);
+  }
+};
+
+const currentTheme =
+  theme === "light"
+    ? lightTheme
+    : theme === "dark"
+      ? darkTheme
+      : deviceTheme === "light"
+        ? lightTheme
+        : darkTheme;
   useEffect(() => {
     loadOrders();
   }, []);
@@ -179,153 +221,360 @@ export default function Orders() {
       ) === formatDate(selectedDate)
     );
   });
-  if (loading) {
-    return (
-      <View style={styles.loader}>
-        <ActivityIndicator size="large" color="#2D8CFF" />
-      </View>
-    );
-  }
+if (loading) {
+  return (
+    <View
+      style={[
+        styles.loader,
+        {
+          backgroundColor:
+            currentTheme.background,
+        },
+      ]}
+    >
+      <ActivityIndicator
+        size="large"
+        color={currentTheme.primary}
+      />
+    </View>
+  );
+}
 
   return (
 
-    <FlatList
-      style={styles.container}
-      data={filteredOrders}
-      keyExtractor={(item) => item.id.toString()}
-      contentContainerStyle={{
-        padding: 15,
-        paddingBottom: insets.bottom + 120,
-      }}
-      showsVerticalScrollIndicator={false}
+  <FlatList
+  style={[
+    styles.container,
+    {
+      backgroundColor:
+        currentTheme.background,
+    },
+  ]}
+  data={filteredOrders}
+  keyExtractor={(item) =>
+    item.id.toString()
+  }
+  contentContainerStyle={{
+    padding: 16,
+    paddingBottom:
+      insets.bottom + 120,
+  }}
+  showsVerticalScrollIndicator={
+    false
+  }
       ListHeaderComponent={
-        <>
-          <Text style={styles.title}>
-            📦 Your Orders
-          </Text>
+  <>
+    <Text
+      style={[
+        styles.title,
+        {
+          color:
+            currentTheme.text,
+        },
+      ]}
+    >
+      📦 Your Orders
+    </Text>
 
-          <View style={styles.dateRow}>
-            <TouchableOpacity
-              style={styles.dayButton}
-              onPress={() => changeDay(-1)}
-            >
-              <Text style={styles.dayButtonText}>
-                ◀
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.dateButton}
-              onPress={() =>
-                setShowDatePicker(true)
-              }
-            >
-              <Text style={styles.dateText}>
-                📅 {selectedDate.toDateString()}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.dayButton}
-              onPress={() => changeDay(1)}
-            >
-              <Text style={styles.dayButtonText}>
-                ▶
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {showDatePicker && (
-            <DateTimePicker
-              value={selectedDate}
-              mode="date"
-              display="default"
-              onChange={onDateChange}
-            />
-          )}
-        </>
-      }
-      ListEmptyComponent={
-        <Text style={styles.empty}>
-          No orders found for selected date
+    <View style={styles.dateRow}>
+      <TouchableOpacity
+        style={[
+          styles.dayButton,
+          {
+            backgroundColor:
+              currentTheme.card,
+          },
+        ]}
+        onPress={() =>
+          changeDay(-1)
+        }
+      >
+        <Text
+          style={[
+            styles.dayButtonText,
+            {
+              color:
+                currentTheme.text,
+            },
+          ]}
+        >
+          ◀
         </Text>
-      }
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[
+          styles.dateButton,
+          {
+            backgroundColor:
+              currentTheme.card,
+          },
+        ]}
+        onPress={() =>
+          setShowDatePicker(true)
+        }
+      >
+        <Text
+          style={[
+            styles.dateText,
+            {
+              color:
+                currentTheme.text,
+            },
+          ]}
+        >
+          📅{" "}
+          {selectedDate.toDateString()}
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[
+          styles.dayButton,
+          {
+            backgroundColor:
+              currentTheme.card,
+          },
+        ]}
+        onPress={() =>
+          changeDay(1)
+        }
+      >
+        <Text
+          style={[
+            styles.dayButtonText,
+            {
+              color:
+                currentTheme.text,
+            },
+          ]}
+        >
+          ▶
+        </Text>
+      </TouchableOpacity>
+    </View>
+
+    {showDatePicker && (
+      <DateTimePicker
+        value={selectedDate}
+        mode="date"
+        display="default"
+        onChange={
+          onDateChange
+        }
+      />
+    )}
+  </>
+}
+     ListEmptyComponent={
+  <Text
+    style={[
+      styles.empty,
+      {
+        color:
+          currentTheme.secondaryText,
+      },
+    ]}
+  >
+    No orders found for selected date
+  </Text>
+}
 
       refreshing={refreshing}
       onRefresh={onRefresh}
 
       renderItem={({ item }) => (
-        <View style={styles.card}>
-          <Text style={styles.orderId}>
-            Order #{item.id}
-          </Text>
+  <View
+    style={[
+      styles.card,
+      {
+        backgroundColor:
+          currentTheme.card,
+      },
+    ]}
+  >
+    <Text
+      style={[
+        styles.orderId,
+        {
+          color:
+            currentTheme.primary,
+        },
+      ]}
+    >
+      Order #{item.id}
+    </Text>
 
-          {item.display_name ? (
-            <Text style={styles.line}>
-              🍽 Product Name: {item.display_name}
-            </Text>
-          ) : (
-            <Text style={styles.line}>
-              🛒 Custom Order: {item.custom_item_name || "N/A"}
-            </Text>
-          )}
+    {item.display_name ? (
+      <Text
+        style={[
+          styles.line,
+          {
+            color:
+              currentTheme.text,
+          },
+        ]}
+      >
+        🍽 Product Name:
+        {" "}
+        {item.display_name}
+      </Text>
+    ) : (
+      <Text
+        style={[
+          styles.line,
+          {
+            color:
+              currentTheme.text,
+          },
+        ]}
+      >
+        🛒 Custom Order:
+        {" "}
+        {item.custom_item_name ||
+          "N/A"}
+      </Text>
+    )}
 
-          <Text style={styles.line}>
-            🔢 Quantity: {item.quantity}
-          </Text>
+    <Text
+      style={[
+        styles.line,
+        {
+          color:
+            currentTheme.text,
+        },
+      ]}
+    >
+      🔢 Quantity:
+      {" "}
+      {item.quantity}
+    </Text>
 
-          {item.custom_message ? (
-            <Text style={styles.message}>
-              📝 {item.custom_message}
-            </Text>
-          ) : null}
+    {item.custom_message ? (
+      <Text
+        style={[
+          styles.message,
+          {
+            color:
+              currentTheme.primary,
+          },
+        ]}
+      >
+        📝{" "}
+        {item.custom_message}
+      </Text>
+    ) : null}
 
-          <Text style={styles.date}>
-            📅 {new Date(item.created_at).toLocaleString()}
-          </Text>
-          <View
-            style={[
-              styles.status,
-              item.status === "DELIVERED"
-                ? styles.delivered
-                : item.status === "ACCEPTED"
-                  ? styles.accepted
-                  : item.status === "PREPARING"
-                    ? styles.preparing
-                    : item.status === "CANCELLED"
-                      ? styles.cancelled
-                      : item.status === "REJECTED"
-                        ? styles.rejected
-                        : styles.pending,
-            ]}
-          >
-            <Text style={styles.statusText}>
-              {item.status}
-            </Text>
-          </View>
-          {item.status === "PENDING" && (
-            <TouchableOpacity
-              style={styles.cancelButton}
-              onPress={() => cancelOrder(item.id)}
-            >
-              <Text style={styles.cancelButtonText}>
-                Cancel Order
-              </Text>
-            </TouchableOpacity>
-          )}
-          {item.reject_reason ? (
-            <View style={styles.reasonBox}>
-              <Text style={styles.reasonTitle}>
-                ❌ Reject Reason
-              </Text>
+    <Text
+      style={[
+        styles.date,
+        {
+          color:
+            currentTheme.secondaryText,
+        },
+      ]}
+    >
+      📅{" "}
+      {new Date(
+        item.created_at
+      ).toLocaleString()}
+    </Text>
 
-              <Text style={styles.reasonText}>
-                {item.reject_reason}
-              </Text>
-            </View>
-          ) : null}
-        </View>
-      )}
+    <View
+      style={[
+        styles.status,
+        item.status ===
+        "DELIVERED"
+          ? styles.delivered
+          : item.status ===
+              "ACCEPTED"
+            ? styles.accepted
+            : item.status ===
+                "PREPARING"
+              ? styles.preparing
+              : item.status ===
+                  "CANCELLED"
+                ? styles.cancelled
+                : item.status ===
+                    "REJECTED"
+                  ? styles.rejected
+                  : styles.pending,
+      ]}
+    >
+      <Text
+        style={
+          styles.statusText
+        }
+      >
+        {item.status}
+      </Text>
+    </View>
+
+    {item.status ===
+      "PENDING" && (
+      <TouchableOpacity
+        style={[
+          styles.cancelButton,
+          {
+            backgroundColor:
+              currentTheme.danger,
+          },
+        ]}
+        onPress={() =>
+          cancelOrder(
+            item.id
+          )
+        }
+      >
+        <Text
+          style={
+            styles.cancelButtonText
+          }
+        >
+          Cancel Order
+        </Text>
+      </TouchableOpacity>
+    )}
+
+    {item.reject_reason ? (
+      <View
+        style={[
+          styles.reasonBox,
+          {
+            backgroundColor:
+              currentTheme.background,
+            borderColor:
+              currentTheme.border,
+          },
+        ]}
+      >
+        <Text
+          style={[
+            styles.reasonTitle,
+            {
+              color:
+                currentTheme.danger,
+            },
+          ]}
+        >
+          ❌ Reject Reason
+        </Text>
+
+        <Text
+          style={[
+            styles.reasonText,
+            {
+              color:
+                currentTheme.text,
+            },
+          ]}
+        >
+          {item.reject_reason}
+        </Text>
+      </View>
+    ) : null}
+  </View>
+)}
     />
   );
 
@@ -334,170 +583,160 @@ export default function Orders() {
 // =====================
 // STYLES (PRO UI)
 // =====================
-const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  scrollContent: {
-    paddingBottom: 120,
-  },
-  loader: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: colors.background,
-  },
+const styles =
+  StyleSheet.create({
+    container: {
+      flex: 1,
+    },
 
-  title: {
-    color: "#fff",
-    fontSize: 24,
-    fontWeight: "900",
-    margin: 15,
-  },
+    loader: {
+      flex: 1,
+      justifyContent:
+        "center",
+      alignItems:
+        "center",
+    },
 
-  card: {
-    backgroundColor: "#101E2D",
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 12,
-  },
+    title: {
+      fontSize: 28,
+      fontWeight: "700",
+      marginBottom: 20,
+    },
 
-  orderId: {
-    color: "#2D8CFF",
-    fontSize: 16,
-    fontWeight: "900",
-    marginBottom: 10,
-  },
+    card: {
+      padding: 16,
+      borderRadius: 18,
+      marginBottom: 12,
+    },
 
-  line: {
-    color: "#B5C4D4",
-    marginTop: 4,
-    fontSize: 13,
-  },
+    orderId: {
+      fontSize: 16,
+      fontWeight: "700",
+      marginBottom: 10,
+    },
 
-  message: {
-    color: "#64B5F6",
-    marginTop: 8,
-    fontStyle: "italic",
-  },
+    line: {
+      fontSize: 14,
+      marginTop: 4,
+    },
 
-  date: {
-    color: "#7F8C9A",
-    marginTop: 10,
-    fontSize: 12,
-  },
+    message: {
+      marginTop: 10,
+      fontStyle: "italic",
+    },
 
-  status: {
-    marginTop: 12,
-    alignSelf: "flex-start",
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 10,
-  },
+    date: {
+      marginTop: 10,
+      fontSize: 12,
+    },
 
-  pending: {
-    backgroundColor: "#FFA726",
-  },
+    status: {
+      marginTop: 12,
+      alignSelf: "flex-start",
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 10,
+    },
 
-  accepted: {
-    backgroundColor: "#42A5F5",
-  },
+    pending: {
+      backgroundColor:
+        "#FFA726",
+    },
 
-  preparing: {
-    backgroundColor: "#AB47BC",
-  },
+    accepted: {
+      backgroundColor:
+        "#42A5F5",
+    },
 
-  delivered: {
-    backgroundColor: "#66BB6A",
-  },
+    preparing: {
+      backgroundColor:
+        "#AB47BC",
+    },
 
-  cancelled: {
-    backgroundColor: "#E53935",
-  },
+    delivered: {
+      backgroundColor:
+        "#66BB6A",
+    },
 
-  statusText: {
-    color: "#fff",
-    fontWeight: "700",
-    fontSize: 12,
-  },
-  reasonBox: {
-    marginTop: 12,
-    backgroundColor: "#2A1620",
-    padding: 10,
-    borderRadius: 10,
-  },
+    cancelled: {
+      backgroundColor:
+        "#E53935",
+    },
 
-  reasonTitle: {
-    color: "#FF8A80",
-    fontWeight: "800",
-    marginBottom: 5,
-  },
+    rejected: {
+      backgroundColor:
+        "#D32F2F",
+    },
 
-  reasonText: {
-    color: "#FFFFFF",
-    lineHeight: 20,
-  },
+    statusText: {
+      color: "#FFFFFF",
+      fontWeight: "700",
+      fontSize: 12,
+    },
 
-  rejected: {
-    backgroundColor: "#D32F2F",
-  },
-  dateRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginHorizontal: 15,
-    marginBottom: 20,
-  },
+    reasonBox: {
+      marginTop: 12,
+      padding: 12,
+      borderRadius: 12,
+      borderWidth: 1,
+    },
 
-  dayButton: {
-    backgroundColor: "#101E2D",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 10,
-  },
+    reasonTitle: {
+      fontWeight: "700",
+      marginBottom: 6,
+    },
 
-  dayButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "800",
-  },
+    reasonText: {
+      lineHeight: 20,
+    },
 
-  dateButton: {
-    flex: 1,
-    marginHorizontal: 10,
-    backgroundColor: "#101E2D",
-    padding: 12,
-    borderRadius: 10,
-    alignItems: "center",
-  },
+    dateRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent:
+        "space-between",
+      marginBottom: 20,
+    },
 
-  dateText: {
-    color: "#FFFFFF",
-    fontWeight: "800",
-  },
+    dayButton: {
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      borderRadius: 12,
+    },
 
-  empty: {
-    color: "#AAA",
-    textAlign: "center",
-    marginTop: 50,
-  },
-  cancelButton: {
-  marginTop: 15,
-  backgroundColor: "#D32F2F",
-  paddingVertical: 10,
-  borderRadius: 10,
-  alignItems: "center",
-},
+    dayButtonText: {
+      fontSize: 16,
+      fontWeight: "700",
+    },
 
+    dateButton: {
+      flex: 1,
+      marginHorizontal: 10,
+      padding: 12,
+      borderRadius: 12,
+      alignItems: "center",
+    },
 
-cancelButtonText: {
-  color: "#FFFFFF",
-  fontWeight: "800",
-  fontSize: 14,
-},
-});
+    dateText: {
+      fontWeight: "600",
+    },
+
+    empty: {
+      textAlign: "center",
+      marginTop: 60,
+      fontSize: 15,
+    },
+
+    cancelButton: {
+      marginTop: 15,
+      paddingVertical: 12,
+      borderRadius: 12,
+      alignItems: "center",
+    },
+
+    cancelButtonText: {
+      color: "#FFFFFF",
+      fontWeight: "700",
+      fontSize: 14,
+    },
+  });

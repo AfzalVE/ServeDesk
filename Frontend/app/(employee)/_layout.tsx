@@ -1,183 +1,277 @@
-import React, { useEffect, useState } from "react";
+import React, {
+  useEffect,
+  useState,
+  useCallback,
+} from "react";
+
 import { Tabs, router } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+
+import {
+  Ionicons,
+} from "@expo/vector-icons";
+
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { ActivityIndicator, View,StyleSheet } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { colors } from "../../constants/theme";
+
+import {
+  ActivityIndicator,
+  View,
+  StyleSheet,
+  useColorScheme,
+} from "react-native";
+
+import {
+  SafeAreaView,
+} from "react-native-safe-area-context";
+
+import {
+  useFocusEffect,
+} from "@react-navigation/native";
+
+import {
+  darkTheme,
+  lightTheme,
+} from "../../constants/theme";
 
 export default function EmployeeLayout() {
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] =
+    useState(true);
+
+  const deviceTheme =
+    useColorScheme();
+
+  const [theme, setTheme] =
+    useState("dark");
 
   useEffect(() => {
     checkAuth();
   }, []);
 
-  const checkAuth = async () => {
-    try {
-      const userStr = await AsyncStorage.getItem("user");
+  useFocusEffect(
+    useCallback(() => {
+      loadTheme();
+    }, [])
+  );
 
-      if (!userStr) {
-        router.replace("/");
-        return;
+  const loadTheme =
+    async () => {
+      try {
+        const savedTheme =
+          await AsyncStorage.getItem(
+            "theme"
+          );
+
+        if (savedTheme) {
+          setTheme(savedTheme);
+        }
+      } catch (error) {
+        console.log(error);
       }
+    };
 
-      const user = JSON.parse(userStr);
+  const currentTheme =
+    theme === "light"
+      ? lightTheme
+      : theme === "dark"
+      ? darkTheme
+      : deviceTheme === "light"
+      ? lightTheme
+      : darkTheme;
 
-      if (user.user_type !== "EMPLOYEE") {
+  const checkAuth =
+    async () => {
+      try {
+        const userStr =
+          await AsyncStorage.getItem(
+            "user"
+          );
+
+        if (!userStr) {
+          router.replace("/");
+          return;
+        }
+
+        const user =
+          JSON.parse(userStr);
+
+        if (
+          user.user_type !==
+          "EMPLOYEE"
+        ) {
+          router.replace("/");
+          return;
+        }
+      } catch {
         router.replace("/");
-        return;
+      } finally {
+        setLoading(false);
       }
-    } catch {
-      router.replace("/");
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
 
   if (loading) {
     return (
       <View
-        style={{
-          flex: 1,
-          backgroundColor: colors.background,
-          justifyContent: "center",
-          alignItems: "center",
-        }}
+        style={[
+          styles.loader,
+          {
+            backgroundColor:
+              currentTheme.background,
+          },
+        ]}
       >
         <ActivityIndicator
           size="large"
-          color="#2D8CFF"
+          color={
+            currentTheme.primary
+          }
         />
       </View>
     );
   }
 
   return (
-        <SafeAreaView style={styles.safe}>
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-
-        tabBarStyle: {
-          backgroundColor: "#101E2D",
-          borderTopColor: "#16293D",
-          height: 70,
-          paddingBottom: 8,
-          paddingTop: 8,
+    <SafeAreaView
+      style={[
+        styles.safe,
+        {
+          backgroundColor:
+            currentTheme.background,
         },
-
-        tabBarActiveTintColor: "#2D8CFF",
-        tabBarInactiveTintColor: "#8FA4B8",
-
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: "700",
-        },
-      }}
+      ]}
     >
-      <Tabs.Screen
-        name="home"
-        options={{
-          title: "Home",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons
-              name="grid-outline"
-              size={size}
-              color={color}
-            />
-          ),
-        }}
-      />
+      <Tabs
+        screenOptions={{
+          headerShown: false,
 
-      <Tabs.Screen
-        name="orders"
-        options={{
-          title: "Orders",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons
-              name="restaurant-outline"
-              size={size}
-              color={color}
-            />
-          ),
-        }}
-      />
+          tabBarStyle: {
+            backgroundColor:
+              currentTheme.card,
 
-      <Tabs.Screen
-        name="tickets"
-        options={{
-          title: "Tickets",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons
-              name="notifications-outline"
-              size={size}
-              color={color}
-            />
-          ),
+            borderTopColor:
+              currentTheme.border,
+
+            height: 70,
+
+            paddingTop: 8,
+
+            paddingBottom: 8,
+          },
+
+          tabBarActiveTintColor:
+            currentTheme.primary,
+
+          tabBarInactiveTintColor:
+            currentTheme.secondaryText,
+
+          tabBarLabelStyle: {
+            fontSize: 12,
+            fontWeight: "700",
+          },
         }}
-      />
-         {/* ANNOUNCEMENTS */}
-              <Tabs.Screen
-                name="announcements"
-                options={{
-                  title:
-                    "Notices",
-                  tabBarIcon: ({
-                    color,
-                    size,
-                  }) => (
-                    <Ionicons
-                      name="megaphone-outline"
-                      size={size}
-                      color={color}
-                    />
-                  ),
-                }}
+      >
+        <Tabs.Screen
+          name="home"
+          options={{
+            title: "Home",
+
+            tabBarIcon: ({
+              color,
+              size,
+            }) => (
+              <Ionicons
+                name="grid-outline"
+                size={size}
+                color={color}
               />
-      
+            ),
+          }}
+        />
 
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: "Profile",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons
-              name="person-circle-outline"
-              size={size}
-              color={color}
-            />
-          ),
-        }}
-      />
-    </Tabs>
+        <Tabs.Screen
+          name="orders"
+          options={{
+            title: "Orders",
+
+            tabBarIcon: ({
+              color,
+              size,
+            }) => (
+              <Ionicons
+                name="restaurant-outline"
+                size={size}
+                color={color}
+              />
+            ),
+          }}
+        />
+
+        <Tabs.Screen
+          name="tickets"
+          options={{
+            title: "Tickets",
+
+            tabBarIcon: ({
+              color,
+              size,
+            }) => (
+              <Ionicons
+                name="notifications-outline"
+                size={size}
+                color={color}
+              />
+            ),
+          }}
+        />
+
+        <Tabs.Screen
+          name="announcements"
+          options={{
+            title: "Notices",
+
+            tabBarIcon: ({
+              color,
+              size,
+            }) => (
+              <Ionicons
+                name="megaphone-outline"
+                size={size}
+                color={color}
+              />
+            ),
+          }}
+        />
+
+        <Tabs.Screen
+          name="profile"
+          options={{
+            title: "Profile",
+
+            tabBarIcon: ({
+              color,
+              size,
+            }) => (
+              <Ionicons
+                name="person-circle-outline"
+                size={size}
+                color={color}
+              />
+            ),
+          }}
+        />
+      </Tabs>
     </SafeAreaView>
   );
 }
-const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
 
-  wrapper: {
-    flex: 1,
-  },
+const styles =
+  StyleSheet.create({
+    safe: {
+      flex: 1,
+    },
 
-   tabBar: {
-    backgroundColor: "#101E2D",
-
-    position: "absolute",
-    marginHorizontal: 16,
-    marginBottom: 12,
-    borderRadius: 20,
-    height: 65,
-
-    borderTopWidth: 0,
-
-    shadowColor: "#000",
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 10,
-  },
-});
+    loader: {
+      flex: 1,
+      justifyContent:
+        "center",
+      alignItems: "center",
+    },
+  });

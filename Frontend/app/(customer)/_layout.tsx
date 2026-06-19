@@ -1,26 +1,105 @@
+import React, {
+  useState,
+  useCallback,
+} from "react";
+
 import { Tabs } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { StyleSheet, View } from "react-native";
-import { colors } from "../../constants/theme";
+
+import {
+  Ionicons,
+} from "@expo/vector-icons";
+
+import {
+  SafeAreaView,
+} from "react-native-safe-area-context";
+
+import {
+  StyleSheet,
+  useColorScheme,
+} from "react-native";
+
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+import {
+  useFocusEffect,
+} from "@react-navigation/native";
+
+import {
+  darkTheme,
+  lightTheme,
+} from "../../constants/theme";
 
 export default function CustomerLayout() {
+  const deviceTheme =
+    useColorScheme();
+
+  const [theme, setTheme] =
+    useState("dark");
+
+  useFocusEffect(
+    useCallback(() => {
+      loadTheme();
+    }, [])
+  );
+
+  const loadTheme =
+    async () => {
+      try {
+        const savedTheme =
+          await AsyncStorage.getItem(
+            "theme"
+          );
+
+        if (savedTheme) {
+          setTheme(savedTheme);
+        }
+      } catch (error) {
+        console.log(error);
+      }
+    };
+
+  const currentTheme =
+    theme === "light"
+      ? lightTheme
+      : theme === "dark"
+      ? darkTheme
+      : deviceTheme === "light"
+      ? lightTheme
+      : darkTheme;
+
   return (
     <SafeAreaView
-      style={styles.safe}
+      style={[
+        styles.safe,
+        {
+          backgroundColor:
+            currentTheme.background,
+        },
+      ]}
     >
       <Tabs
         screenOptions={{
           headerShown: false,
 
-          tabBarStyle:
-            styles.tabBar,
+          tabBarStyle: {
+            backgroundColor:
+              currentTheme.card,
+
+            borderTopColor:
+              currentTheme.border,
+
+            height: 70,
+
+            paddingTop: 8,
+
+            paddingBottom: 8,
+          },
 
           tabBarActiveTintColor:
-            "#2D8CFF",
+            currentTheme.primary,
 
           tabBarInactiveTintColor:
-            "#8FA4B8",
+            currentTheme.secondaryText,
 
           tabBarLabelStyle: {
             fontSize: 11,
@@ -32,8 +111,16 @@ export default function CustomerLayout() {
           name="home"
           options={{
             title: "Home",
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="home-outline" size={size} color={color} />
+
+            tabBarIcon: ({
+              color,
+              size,
+            }) => (
+              <Ionicons
+                name="home-outline"
+                size={size}
+                color={color}
+              />
             ),
           }}
         />
@@ -42,8 +129,16 @@ export default function CustomerLayout() {
           name="custom"
           options={{
             title: "Custom",
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="create-outline" size={size} color={color} />
+
+            tabBarIcon: ({
+              color,
+              size,
+            }) => (
+              <Ionicons
+                name="create-outline"
+                size={size}
+                color={color}
+              />
             ),
           }}
         />
@@ -52,17 +147,25 @@ export default function CustomerLayout() {
           name="orders"
           options={{
             title: "Orders",
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="cube-outline" size={size} color={color} />
+
+            tabBarIcon: ({
+              color,
+              size,
+            }) => (
+              <Ionicons
+                name="cube-outline"
+                size={size}
+                color={color}
+              />
             ),
           }}
         />
-        {/* ANNOUNCEMENTS */}
+
         <Tabs.Screen
           name="announcements"
           options={{
-            title:
-              "Notices",
+            title: "Notices",
+
             tabBarIcon: ({
               color,
               size,
@@ -75,11 +178,16 @@ export default function CustomerLayout() {
             ),
           }}
         />
+
         <Tabs.Screen
           name="active_tickets"
           options={{
             title: "Active",
-            tabBarIcon: ({ color, size }) => (
+
+            tabBarIcon: ({
+              color,
+              size,
+            }) => (
               <Ionicons
                 name="ticket-outline"
                 size={size}
@@ -89,13 +197,20 @@ export default function CustomerLayout() {
           }}
         />
 
-
         <Tabs.Screen
           name="profile"
           options={{
             title: "Profile",
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="person-outline" size={size} color={color} />
+
+            tabBarIcon: ({
+              color,
+              size,
+            }) => (
+              <Ionicons
+                name="person-outline"
+                size={size}
+                color={color}
+              />
             ),
           }}
         />
@@ -104,37 +219,9 @@ export default function CustomerLayout() {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor:
-      colors.background,
-  },
-
-  loader: {
-    flex: 1,
-    backgroundColor:
-      colors.background,
-    justifyContent:
-      "center",
-    alignItems: "center",
-  },
-
-
-  tabBar: {
-    backgroundColor: "#101E2D",
-
-    position: "absolute",
-    marginHorizontal: 16,
-    marginBottom: 12,
-    borderRadius: 20,
-    height: 65,
-
-    borderTopWidth: 0,
-
-    shadowColor: "#000",
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 10,
-  },
-});
+const styles =
+  StyleSheet.create({
+    safe: {
+      flex: 1,
+    },
+  });

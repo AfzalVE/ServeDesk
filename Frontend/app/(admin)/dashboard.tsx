@@ -13,12 +13,21 @@ import {
   View,
   RefreshControl,
 } from "react-native";
-
+import { 
+  useFocusEffect 
+} from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 
 import { API_URL } from "../../config/api";
-import { colors } from "../../constants/theme";
+import {
+  darkTheme,
+  lightTheme,
+} from "../../constants/theme";
+
+import {
+  useColorScheme,
+} from "react-native";
 
 export default function AdminDashboard() {
   const [user, setUser] =
@@ -41,7 +50,47 @@ export default function AdminDashboard() {
   const [todayAnnouncement,
     setTodayAnnouncement] =
     useState<any>(null);
+//Theme
+const [theme, setTheme] = useState("dark");
 
+const deviceTheme = useColorScheme();
+
+
+useFocusEffect(
+  React.useCallback(() => {
+    loadTheme();
+  }, [])
+);
+
+
+const loadTheme = async () => {
+  try {
+    const savedTheme =
+      await AsyncStorage.getItem("theme");
+
+    if (savedTheme) {
+      setTheme(savedTheme);
+    }
+
+  } catch(error){
+    console.log(error);
+  }
+};
+
+
+
+const currentTheme =
+  theme === "light"
+    ? lightTheme
+    : theme === "dark"
+      ? darkTheme
+      : deviceTheme === "light"
+        ? lightTheme
+        : darkTheme;
+
+
+
+const styles = createStyles(currentTheme);
   // ==========================
   // LOAD DASHBOARD
   // ==========================
@@ -716,234 +765,285 @@ export default function AdminDashboard() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-    paddingHorizontal: 16,
-  },
+const createStyles = (theme:any)=>
 
-  loader: {
-    flex: 1,
-    backgroundColor: colors.background,
-    justifyContent: "center",
-    alignItems: "center",
-  },
+StyleSheet.create({
 
-  loaderText: {
-    color: "#FFF",
-    marginTop: 15,
-    fontSize: 15,
-    fontWeight: "700",
-  },
+container:{
+  flex:1,
+  backgroundColor:theme.background,
+  paddingHorizontal:16,
+},
 
-  // ======================
-  // HEADER
-  // ======================
 
-  header: {
-    marginTop: 20,
-    marginBottom: 25,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
+loader:{
+  flex:1,
+  backgroundColor:theme.background,
+  justifyContent:"center",
+  alignItems:"center",
+},
 
-  title: {
-    color: "#FFF",
-    fontSize: 30,
-    fontWeight: "900",
-  },
 
-  subTitle: {
-    color: "#8EA2B8",
-    fontSize: 15,
-    marginTop: 5,
-  },
+loaderText:{
+  color:theme.text,
+  marginTop:15,
+  fontSize:15,
+  fontWeight:"700",
+},
 
-  avatar: {
-    width: 65,
-    height: 65,
-    borderRadius: 35,
-    backgroundColor: "#2D8CFF",
-    justifyContent: "center",
-    alignItems: "center",
-  },
 
-  avatarText: {
-    color: "#FFF",
-    fontSize: 28,
-    fontWeight: "900",
-  },
 
-  // ======================
-  // STATS
-  // ======================
+// =================
+// HEADER
+// =================
 
-  statsRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    marginBottom: 25,
-  },
+header:{
+  marginTop:20,
+  marginBottom:25,
+  flexDirection:"row",
+  justifyContent:"space-between",
+  alignItems:"center",
+},
 
-  card: {
-    width: "48%",
-    backgroundColor: "#101E2D",
-    borderRadius: 18,
-    paddingVertical: 22,
-    paddingHorizontal: 18,
-    marginBottom: 14,
-    borderLeftWidth: 5,
-    borderLeftColor: "#2D8CFF",
-  },
 
-  cardNumber: {
-    color: "#FFF",
-    fontSize: 28,
-    fontWeight: "900",
-  },
+title:{
+  color:theme.text,
+  fontSize:30,
+  fontWeight:"900",
+},
 
-  cardLabel: {
-    color: "#8EA2B8",
-    marginTop: 8,
-    fontSize: 14,
-    fontWeight: "700",
-  },
 
-  // ======================
-  // SECTION
-  // ======================
+subTitle:{
+  color:theme.secondaryText,
+  fontSize:15,
+  marginTop:5,
+},
 
-  sectionTitle: {
-    color: "#FFF",
-    fontSize: 18,
-    fontWeight: "900",
-    marginBottom: 15,
-  },
 
-  // ======================
-  // MODULES
-  // ======================
+avatar:{
+  width:65,
+  height:65,
+  borderRadius:35,
+  backgroundColor:theme.primary,
+  justifyContent:"center",
+  alignItems:"center",
+},
 
-  navGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    marginBottom: 25,
-  },
 
-  navCard: {
-    width: "48%",
-    backgroundColor: "#101E2D",
-    borderRadius: 18,
-    paddingVertical: 22,
-    alignItems: "center",
-    marginBottom: 14,
-  },
+avatarText:{
+  color:theme.buttonText,
+  fontSize:28,
+  fontWeight:"900",
+},
 
-  navIcon: {
-    fontSize: 34,
-    marginBottom: 10,
-  },
 
-  navText: {
-    color: "#FFF",
-    fontWeight: "800",
-    fontSize: 15,
-  },
 
-  // ======================
-  // ANNOUNCEMENT
-  // ======================
+// =================
+// STATS
+// =================
 
-  announcementBox: {
-    backgroundColor: "#101E2D",
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 25,
-    borderLeftWidth: 5,
-    borderLeftColor: "#FFC107",
-  },
 
-  announcementTitle: {
-    color: "#FFC107",
-    fontSize: 20,
-    fontWeight: "900",
-    marginBottom: 10,
-  },
+statsRow:{
+ flexDirection:"row",
+ flexWrap:"wrap",
+ justifyContent:"space-between",
+ marginBottom:25,
+},
 
-  announcementMessage: {
-    color: "#D5E2F0",
-    fontSize: 15,
-    lineHeight: 24,
-  },
 
-  emptyText: {
-    color: "#8EA2B8",
-    fontSize: 15,
-    marginBottom: 10,
-  },
+card:{
+ width:"48%",
+ backgroundColor:theme.card,
+ borderRadius:18,
+ paddingVertical:22,
+ paddingHorizontal:18,
+ marginBottom:14,
+ borderWidth:1,
+ borderColor:theme.border,
+},
 
-  viewBtn: {
-    backgroundColor: "#2D8CFF",
-    marginTop: 20,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: "center",
-  },
 
-  viewBtnText: {
-    color: "#FFF",
-    fontWeight: "900",
-    fontSize: 15,
-  },
+cardNumber:{
+ color:theme.text,
+ fontSize:28,
+ fontWeight:"900",
+},
 
-  // ======================
-  // QUICK ACTIONS
-  // ======================
 
-  quickBox: {
-    backgroundColor: "#101E2D",
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 25,
-  },
+cardLabel:{
+ color:theme.mutedText,
+ marginTop:8,
+ fontSize:14,
+ fontWeight:"700",
+},
 
-  actionBtn: {
-    backgroundColor: "#16293D",
-    borderRadius: 14,
-    paddingVertical: 16,
-    paddingHorizontal: 18,
-    marginBottom: 12,
-  },
 
-  actionText: {
-    color: "#FFF",
-    fontSize: 15,
-    fontWeight: "800",
-  },
 
-  // ======================
-  // FOOTER
-  // ======================
+// =================
+// SECTION
+// =================
 
-  footer: {
-    alignItems: "center",
-    paddingVertical: 30,
-    marginBottom: 30,
-  },
 
-  footerText: {
-    color: "#FFF",
-    fontSize: 18,
-    fontWeight: "900",
-  },
+sectionTitle:{
+ color:theme.text,
+ fontSize:18,
+ fontWeight:"900",
+ marginBottom:15,
+},
 
-  footerSubText: {
-    color: "#7D93A8",
-    marginTop: 8,
-    textAlign: "center",
-    fontSize: 14,
-  },
+
+
+// =================
+// MODULES
+// =================
+
+
+navGrid:{
+ flexDirection:"row",
+ flexWrap:"wrap",
+ justifyContent:"space-between",
+ marginBottom:25,
+},
+
+
+navCard:{
+ width:"48%",
+ backgroundColor:theme.card,
+ borderRadius:18,
+ paddingVertical:22,
+ alignItems:"center",
+ marginBottom:14,
+ borderWidth:1,
+ borderColor:theme.border,
+},
+
+
+navIcon:{
+ fontSize:34,
+ marginBottom:10,
+},
+
+
+navText:{
+ color:theme.text,
+ fontWeight:"800",
+ fontSize:15,
+},
+
+
+
+// =================
+// ANNOUNCEMENT
+// =================
+
+
+announcementBox:{
+ backgroundColor:theme.card,
+ borderRadius:20,
+ padding:20,
+ marginBottom:25,
+ borderWidth:1,
+ borderColor:theme.warning,
+},
+
+
+announcementTitle:{
+ color:theme.warning,
+ fontSize:20,
+ fontWeight:"900",
+ marginBottom:10,
+},
+
+
+announcementMessage:{
+ color:theme.text,
+ fontSize:15,
+ lineHeight:24,
+},
+
+
+emptyText:{
+ color:theme.mutedText,
+ fontSize:15,
+ marginBottom:10,
+},
+
+
+
+viewBtn:{
+ backgroundColor:theme.primary,
+ marginTop:20,
+ paddingVertical:14,
+ borderRadius:12,
+ alignItems:"center",
+},
+
+
+viewBtnText:{
+ color:theme.buttonText,
+ fontWeight:"900",
+ fontSize:15,
+},
+
+
+
+// =================
+// QUICK ACTION
+// =================
+
+
+quickBox:{
+ backgroundColor:theme.card,
+ borderRadius:20,
+ padding:20,
+ marginBottom:25,
+ borderWidth:1,
+ borderColor:theme.border,
+},
+
+
+actionBtn:{
+ backgroundColor:theme.cardDark,
+ borderRadius:14,
+ paddingVertical:16,
+ paddingHorizontal:18,
+ marginBottom:12,
+},
+
+
+actionText:{
+ color:theme.text,
+ fontSize:15,
+ fontWeight:"800",
+},
+
+
+
+// =================
+// FOOTER
+// =================
+
+
+footer:{
+ alignItems:"center",
+ paddingVertical:30,
+ marginBottom:30,
+},
+
+
+footerText:{
+ color:theme.text,
+ fontSize:18,
+ fontWeight:"900",
+},
+
+
+footerSubText:{
+ color:theme.mutedText,
+ marginTop:8,
+ textAlign:"center",
+ fontSize:14,
+},
+
+
 });

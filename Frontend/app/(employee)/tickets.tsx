@@ -12,7 +12,17 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { API_URL } from "../../config/api";
-import { colors } from "../../constants/theme";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect } from "@react-navigation/native";
+
+import {
+  darkTheme,
+  lightTheme,
+} from "../../constants/theme";
+
+import {
+  useColorScheme,
+} from "react-native";
 
 type Ticket = {
   id: number;
@@ -47,7 +57,62 @@ export default function TicketsPage() {
   useEffect(() => {
     fetchTickets();
   }, []);
+  const [theme, setTheme] = useState("dark");
 
+  const deviceTheme = useColorScheme();
+
+
+  useFocusEffect(
+    React.useCallback(() => {
+
+      loadTheme();
+
+    }, [])
+  );
+
+
+
+  const loadTheme = async () => {
+
+    try {
+
+      const savedTheme =
+        await AsyncStorage.getItem("theme");
+
+
+      if (savedTheme) {
+        setTheme(savedTheme);
+      }
+
+    }
+    catch (error) {
+
+      console.log(error);
+
+    }
+
+  };
+
+
+
+  const currentTheme =
+    theme === "light"
+      ?
+      lightTheme
+      :
+      theme === "dark"
+        ?
+        darkTheme
+        :
+        deviceTheme === "light"
+          ?
+          lightTheme
+          :
+          darkTheme;
+
+
+
+  const styles = createStyles(currentTheme);
   const fetchTickets = async () => {
     try {
       const res = await fetch(`${API_URL}/tickets`);
@@ -94,7 +159,7 @@ export default function TicketsPage() {
   if (loading) {
     return (
       <View style={styles.loader}>
-        <ActivityIndicator color="#2D8CFF" />
+        <ActivityIndicator color={currentTheme.primary}/>
       </View>
     );
   }
@@ -109,7 +174,7 @@ export default function TicketsPage() {
         <RefreshControl
           refreshing={refreshing}
           onRefresh={onRefresh}
-          tintColor="#2D8CFF"
+          tintColor={currentTheme.primary}
         />
       }
       ListHeaderComponent={
@@ -268,213 +333,275 @@ export default function TicketsPage() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
+const createStyles = (theme:any)=>
 
-  loader: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: colors.background,
-  },
+StyleSheet.create({
 
-  title: {
-    color: "#FFFFFF",
-    fontSize: 28,
-    fontWeight: "900",
-    margin: 20,
-  },
+container:{
+ flex:1,
+ backgroundColor:theme.background,
+},
 
-  emptyCard: {
-    backgroundColor: "#101E2D",
-    margin: 20,
-    padding: 30,
-    borderRadius: 18,
-    alignItems: "center",
-  },
 
-  emptyText: {
-    color: "#90A4AE",
-    fontSize: 16,
-  },
+loader:{
+ flex:1,
+ justifyContent:"center",
+ alignItems:"center",
+ backgroundColor:theme.background,
+},
 
-  card: {
-    backgroundColor: "#101E2D",
-    marginHorizontal: 16,
-    marginBottom: 16,
-    padding: 18,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "#1E3348",
-  },
-  dateRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginHorizontal: 16,
-    marginBottom: 16,
-  },
 
-  dayButton: {
-    backgroundColor: "#101E2D",
-    width: 45,
-    height: 45,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-  },
 
-  dayButtonText: {
-    color: "#FFFFFF",
-    fontSize: 18,
-    fontWeight: "900",
-  },
+title:{
+ color:theme.text,
+ fontSize:28,
+ fontWeight:"900",
+ margin:20,
+},
 
-  dateButton: {
-    backgroundColor: "#101E2D",
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    borderRadius: 12,
-    marginHorizontal: 10,
-  },
 
-  dateText: {
-    color: "#FFFFFF",
-    fontWeight: "700",
-  },
 
-  empty: {
-    color: "#90A4AE",
-    textAlign: "center",
-    marginTop: 50,
-    fontSize: 16,
-  },
-  headerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
+emptyCard:{
+ backgroundColor:theme.card,
+ margin:20,
+ padding:30,
+ borderRadius:18,
+ alignItems:"center",
+},
 
-  ticketId: {
-    color: "#FFFFFF",
-    fontSize: 18,
-    fontWeight: "900",
-  },
 
-  divider: {
-    height: 1,
-    backgroundColor: "#1E3348",
-    marginVertical: 15,
-  },
+emptyText:{
+ color:theme.mutedText,
+ fontSize:16,
+},
 
-  statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
 
-  openBadge: {
-    backgroundColor: "#FF9800",
-  },
 
-  acceptedBadge: {
-    backgroundColor: "#2E7D32",
-  },
+card:{
+ backgroundColor:theme.card,
+ marginHorizontal:16,
+ marginBottom:16,
+ padding:18,
+ borderRadius:18,
+ borderWidth:1,
+ borderColor:theme.border,
+},
 
-  rejectedBadge: {
-    backgroundColor: "#D32F2F",
-  },
 
-  cancelledBadge: {
-    backgroundColor: "#616161",
-  },
 
-  closedBadge: {
-    backgroundColor: "#1565C0",
-  },
+dateRow:{
+ flexDirection:"row",
+ alignItems:"center",
+ justifyContent:"center",
+ marginHorizontal:16,
+ marginBottom:16,
+},
 
-  statusText: {
-    color: "#FFFFFF",
-    fontWeight: "800",
-    fontSize: 12,
-  },
 
-  infoRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 10,
-  },
 
-  label: {
-    color: "#90A4AE",
-    fontWeight: "700",
-    width: "45%",
-  },
+dayButton:{
+ backgroundColor:theme.card,
+ width:45,
+ height:45,
+ borderRadius:12,
+ justifyContent:"center",
+ alignItems:"center",
+},
 
-  value: {
-    color: "#FFFFFF",
-    fontWeight: "800",
-    textAlign: "right",
-    width: "55%",
-  },
 
-  successText: {
-    color: "#4CAF50",
-    fontWeight: "900",
-    textAlign: "right",
-    width: "55%",
-  },
 
-  rejectText: {
-    color: "#EF5350",
-    fontWeight: "900",
-    textAlign: "right",
-    width: "55%",
-  },
+dayButtonText:{
+ color:theme.text,
+ fontSize:18,
+ fontWeight:"900",
+},
 
-  reasonBox: {
-    marginTop: 12,
-    backgroundColor: "#16293D",
-    padding: 12,
-    borderRadius: 12,
-  },
 
-  reasonTitle: {
-    color: "#FF8A80",
-    fontWeight: "800",
-    marginBottom: 6,
-  },
 
-  reasonText: {
-    color: "#FFFFFF",
-    lineHeight: 20,
-  },
+dateButton:{
+ backgroundColor:theme.card,
+ paddingHorizontal:18,
+ paddingVertical:12,
+ borderRadius:12,
+ marginHorizontal:10,
+},
 
-  messageBox: {
-    marginTop: 15,
-    backgroundColor: "#16293D",
-    padding: 14,
-    borderRadius: 12,
-  },
 
-  messageTitle: {
-    color: "#64B5F6",
-    fontWeight: "900",
-    marginBottom: 6,
-  },
 
-  messageText: {
-    color: "#FFFFFF",
-    lineHeight: 22,
-  },
+dateText:{
+ color:theme.text,
+ fontWeight:"700",
+},
 
-  date: {
-    color: "#78909C",
-    marginTop: 16,
-    fontSize: 12,
-    textAlign: "right",
-  },
+
+
+headerRow:{
+ flexDirection:"row",
+ justifyContent:"space-between",
+ alignItems:"center",
+},
+
+
+
+ticketId:{
+ color:theme.text,
+ fontSize:18,
+ fontWeight:"900",
+},
+
+
+
+divider:{
+ height:1,
+ backgroundColor:theme.divider,
+ marginVertical:15,
+},
+
+
+
+statusBadge:{
+ paddingHorizontal:12,
+ paddingVertical:6,
+ borderRadius:20,
+},
+
+
+
+openBadge:{
+ backgroundColor:theme.warning,
+},
+
+
+
+acceptedBadge:{
+ backgroundColor:theme.success,
+},
+
+
+
+rejectedBadge:{
+ backgroundColor:theme.danger,
+},
+
+
+
+cancelledBadge:{
+ backgroundColor:theme.buttonDisabled,
+},
+
+
+
+closedBadge:{
+ backgroundColor:theme.primaryDark,
+},
+
+
+
+statusText:{
+ color:theme.buttonText,
+ fontWeight:"800",
+ fontSize:12,
+},
+
+
+
+infoRow:{
+ flexDirection:"row",
+ justifyContent:"space-between",
+ marginBottom:10,
+},
+
+
+
+label:{
+ color:theme.secondaryText,
+ fontWeight:"700",
+ width:"45%",
+},
+
+
+
+value:{
+ color:theme.text,
+ fontWeight:"800",
+ textAlign:"right",
+ width:"55%",
+},
+
+
+
+successText:{
+ color:theme.success,
+ fontWeight:"900",
+ textAlign:"right",
+ width:"55%",
+},
+
+
+
+rejectText:{
+ color:theme.danger,
+ fontWeight:"900",
+ textAlign:"right",
+ width:"55%",
+},
+
+
+
+reasonBox:{
+ marginTop:12,
+ backgroundColor:theme.cardDark,
+ padding:12,
+ borderRadius:12,
+},
+
+
+
+reasonTitle:{
+ color:theme.danger,
+ fontWeight:"800",
+ marginBottom:6,
+},
+
+
+
+reasonText:{
+ color:theme.text,
+ lineHeight:20,
+},
+
+
+
+messageBox:{
+ marginTop:15,
+ backgroundColor:theme.cardDark,
+ padding:14,
+ borderRadius:12,
+},
+
+
+
+messageTitle:{
+ color:theme.primaryLight,
+ fontWeight:"900",
+ marginBottom:6,
+},
+
+
+
+messageText:{
+ color:theme.text,
+ lineHeight:22,
+},
+
+
+
+date:{
+ color:theme.mutedText,
+ marginTop:16,
+ fontSize:12,
+ textAlign:"right",
+},
+
+
 });

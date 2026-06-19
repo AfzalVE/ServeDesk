@@ -10,8 +10,16 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { API_URL } from "../../config/api";
-import { colors } from "../../constants/theme";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect } from "@react-navigation/native";
+import {
+  darkTheme,
+  lightTheme,
+} from "../../constants/theme";
+
+import {
+  useColorScheme,
+} from "react-native"; import { useSafeAreaInsets } from "react-native-safe-area-context";
 import DateTimePicker from "@react-native-community/datetimepicker";
 
 // ==========================
@@ -32,7 +40,55 @@ export default function Orders() {
   const [search, setSearch] = useState("");
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
+  //Theme
+  const [theme, setTheme] = useState("dark");
 
+  const deviceTheme = useColorScheme();
+
+
+  useFocusEffect(
+    React.useCallback(() => {
+      loadTheme();
+    }, [])
+  );
+
+
+
+  const loadTheme = async () => {
+    try {
+
+      const savedTheme =
+        await AsyncStorage.getItem("theme");
+
+      if (savedTheme) {
+        setTheme(savedTheme);
+      }
+
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+
+
+  const currentTheme =
+    theme === "light"
+      ?
+      lightTheme
+      :
+      theme === "dark"
+        ?
+        darkTheme
+        :
+        deviceTheme === "light"
+          ?
+          lightTheme
+          :
+          darkTheme;
+
+
+
+  const styles = createStyles(currentTheme);
   // ==========================
   // LOAD ORDERS
   // ==========================
@@ -61,30 +117,43 @@ export default function Orders() {
   // ==========================
 
   const STATUS_CONFIG: any = {
+
     PENDING: {
-      color: "#FFC107",
-      bg: "#2A2208",
+      color: currentTheme.warning,
+      bg: currentTheme.cardDark,
     },
+
+
     ACCEPTED: {
-      color: "#2D8CFF",
-      bg: "#10243B",
+      color: currentTheme.primary,
+      bg: currentTheme.cardDark,
     },
+
+
     DELIVERED: {
-      color: "#4CAF50",
-      bg: "#102615",
+      color: currentTheme.success,
+      bg: currentTheme.cardDark,
     },
+
+
     COMPLETED: {
-      color: "#4CAF50",
-      bg: "#102615",
+      color: currentTheme.success,
+      bg: currentTheme.cardDark,
     },
+
+
     CANCELLED: {
-      color: "#E53935",
-      bg: "#2A1111",
+      color: currentTheme.danger,
+      bg: currentTheme.cardDark,
     },
+
+
     REJECTED: {
-      color: "#E53935",
-      bg: "#2A1111",
+      color: currentTheme.danger,
+      bg: currentTheme.cardDark,
     },
+
+
   };
   const formatDate = (date: Date) => {
     return date.toISOString().split("T")[0];
@@ -144,7 +213,7 @@ export default function Orders() {
   if (loading) {
     return (
       <View style={styles.loader}>
-        <ActivityIndicator size="large" color="#2D8CFF" />
+        <ActivityIndicator size="large" color={currentTheme.primary} />
         <Text style={styles.loaderText}>Loading orders...</Text>
       </View>
     );
@@ -370,218 +439,234 @@ export default function Orders() {
 // ==========================
 // STYLES
 // ==========================
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-    padding: 15,
-  },
+const createStyles = (theme: any) =>
 
-  title: {
-    color: "#fff",
-    fontSize: 28,
-    fontWeight: "900",
-  },
-
-  subTitle: {
-    color: "#aaa",
-    marginBottom: 15,
-  },
-
-  search: {
-    backgroundColor: "#16293D",
-    color: "#fff",
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 15,
-  },
-
-  loader: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: colors.background,
-  },
-
-  loaderText: {
-    marginTop: 10,
-    color: "#aaa",
-  },
-
-  empty: {
-    color: "#aaa",
-    textAlign: "center",
-    marginTop: 20,
-  },
-
-  card: {
-    backgroundColor: "#101E2D",
-    padding: 15,
-    borderRadius: 12,
-    marginBottom: 12,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-
-  orderId: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "800",
-  },
-
-  subText: {
-    color: "#aaa",
-    marginTop: 4,
-  },
-
-  status: {
-    marginTop: 8,
-    fontWeight: "900",
-  },
-
-  actions: {
-    marginLeft: 10,
-    alignItems: "flex-end",
-  },
-
-  btn: {
-    backgroundColor: "#2D8CFF",
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    marginBottom: 5,
-  },
-
-  btnText: {
-    color: "#fff",
-    fontSize: 12,
-    fontWeight: "800",
-  },
-  orderCard: {
-    backgroundColor: "#101E2D",
-    marginBottom: 16,
-    borderRadius: 18,
-    padding: 18,
-    borderLeftWidth: 6,
-  },
-
-  cardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-
-  orderNumber: {
-    color: "#FFF",
-    fontSize: 18,
-    fontWeight: "900",
-  },
-
-  orderTime: {
-    color: "#7F93A8",
-    marginTop: 4,
-    fontSize: 12,
-  },
-
-  statusBadge: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 30,
-  },
-  statusText: {
-    color: "#FFF",
-    fontWeight: "900",
-    fontSize: 12,
-  },
-  separator: {
-    height: 1,
-    backgroundColor: "#1E344A",
-    marginVertical: 14,
-  },
-
-  info: {
-    color: "#9FB2C6",
-    fontSize: 14,
-    marginBottom: 8,
-  },
+  StyleSheet.create({
 
 
-  value: {
-    color: "#FFF",
-    fontWeight: "800",
-  },
+    container: {
+      flex: 1,
+      backgroundColor: theme.background,
+    },
 
 
-  noteBox: {
-    marginTop: 15,
-    backgroundColor: "#16293D",
-    padding: 12,
-    borderRadius: 12,
-  },
 
-  noteTitle: {
-    color: "#64B5F6",
-    fontWeight: "900",
-    marginBottom: 5,
-  },
+    title: {
+      color: theme.text,
+      fontSize: 28,
+      fontWeight: "900",
+    },
 
-  noteText: {
-    color: "#FFF",
-  },
 
-  rejectBox: {
-    marginTop: 15,
-    backgroundColor: "#2A1111",
-    borderLeftWidth: 4,
-    borderLeftColor: "#E53935",
-    padding: 12,
-    borderRadius: 12,
-  },
-  rejectTitle: {
-    color: "#FF6B6B",
-    fontWeight: "900",
-    marginBottom: 5,
-  },
 
-  rejectText: {
-    color: "#FFF",
-  },
-  dateRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 18,
-  },
+    subTitle: {
+      color: theme.mutedText,
+      marginBottom: 15,
+    },
 
-  dayButton: {
-    backgroundColor: "#16293D",
-    width: 50,
-    height: 50,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-  },
 
-  dayButtonText: {
-    color: "#FFF",
-    fontSize: 20,
-    fontWeight: "900",
-  },
 
-  dateButton: {
-    flex: 1,
-    marginHorizontal: 10,
-    backgroundColor: "#101E2D",
-    borderWidth: 1,
-    borderColor: "#2D8CFF",
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
+    search: {
+      backgroundColor: theme.cardDark,
+      color: theme.text,
+      padding: 12,
+      borderRadius: 10,
+      marginBottom: 15,
+    },
 
-  dateText: {
-    color: "#FFF",
-    fontWeight: "900",
-    fontSize: 15,
-  },
-});
+
+
+    loader: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+      backgroundColor: theme.background,
+    },
+
+
+
+    loaderText: {
+      marginTop: 10,
+      color: theme.mutedText,
+    },
+
+
+
+    empty: {
+      color: theme.mutedText,
+      textAlign: "center",
+      marginTop: 20,
+    },
+
+
+
+    orderCard: {
+      backgroundColor: theme.card,
+      marginBottom: 16,
+      borderRadius: 18,
+      padding: 18,
+      borderLeftWidth: 6,
+    },
+
+
+
+    cardHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+    },
+
+
+
+    orderNumber: {
+      color: theme.text,
+      fontSize: 18,
+      fontWeight: "900",
+    },
+
+
+
+    orderTime: {
+      color: theme.mutedText,
+      marginTop: 4,
+      fontSize: 12,
+    },
+
+
+
+    statusBadge: {
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 30,
+    },
+
+
+
+    statusText: {
+      color: theme.buttonText,
+      fontWeight: "900",
+      fontSize: 12,
+    },
+
+
+
+    separator: {
+      height: 1,
+      backgroundColor: theme.divider,
+      marginVertical: 14,
+    },
+
+
+
+    info: {
+      color: theme.secondaryText,
+      fontSize: 14,
+      marginBottom: 8,
+    },
+
+
+
+    value: {
+      color: theme.text,
+      fontWeight: "800",
+    },
+
+
+
+    noteBox: {
+      marginTop: 15,
+      backgroundColor: theme.cardDark,
+      padding: 12,
+      borderRadius: 12,
+    },
+
+
+
+    noteTitle: {
+      color: theme.primaryLight,
+      fontWeight: "900",
+      marginBottom: 5,
+    },
+
+
+
+    noteText: {
+      color: theme.text,
+    },
+
+
+
+    rejectBox: {
+      marginTop: 15,
+      backgroundColor: theme.cardDark,
+      borderLeftWidth: 4,
+      borderLeftColor: theme.danger,
+      padding: 12,
+      borderRadius: 12,
+    },
+
+
+
+    rejectTitle: {
+      color: theme.danger,
+      fontWeight: "900",
+      marginBottom: 5,
+    },
+
+
+
+    rejectText: {
+      color: theme.text,
+    },
+
+
+
+    dateRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: 18,
+    },
+
+
+
+    dayButton: {
+      backgroundColor: theme.cardDark,
+      width: 50,
+      height: 50,
+      borderRadius: 12,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+
+
+
+    dayButtonText: {
+      color: theme.text,
+      fontSize: 20,
+      fontWeight: "900",
+    },
+
+
+
+    dateButton: {
+      flex: 1,
+      marginHorizontal: 10,
+      backgroundColor: theme.card,
+      borderWidth: 1,
+      borderColor: theme.primary,
+      borderRadius: 12,
+      paddingVertical: 14,
+      alignItems: "center",
+    },
+
+
+
+    dateText: {
+      color: theme.text,
+      fontWeight: "900",
+      fontSize: 15,
+    },
+
+
+  });

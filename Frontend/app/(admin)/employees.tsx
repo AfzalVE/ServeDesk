@@ -14,8 +14,17 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { API_URL } from "../../config/api";
-import { colors } from "../../constants/theme";
+import {
+  darkTheme,
+  lightTheme,
+} from "../../constants/theme";
 
+import {
+  useColorScheme,
+} from "react-native";
+
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect } from "@react-navigation/native";
 export default function Employees() {
   const [refreshing, setRefreshing] = useState(false);
   const [employees, setEmployees] = useState<any[]>([]);
@@ -38,7 +47,41 @@ export default function Employees() {
 
   const [userType, setUserType] =
     useState("");
+//Theme
+const [theme, setTheme] = useState("dark");
 
+const deviceTheme = useColorScheme();
+
+useFocusEffect(
+  React.useCallback(() => {
+    loadTheme();
+  }, [])
+);
+
+const loadTheme = async () => {
+  try {
+    const savedTheme =
+      await AsyncStorage.getItem("theme");
+
+    if (savedTheme) {
+      setTheme(savedTheme);
+    }
+  } catch (error) {
+    console.log(error);
+  }
+};
+
+const currentTheme =
+  theme === "light"
+    ? lightTheme
+    : theme === "dark"
+      ? darkTheme
+      : deviceTheme === "light"
+        ? lightTheme
+        : darkTheme;
+
+
+const styles = createStyles(currentTheme);
   // ==========================
   // LOAD EMPLOYEES
   // ==========================
@@ -170,7 +213,7 @@ export default function Employees() {
   if (loading) {
     return (
       <View style={styles.loader}>
-        <ActivityIndicator size="large" color="#2D8CFF" />
+        <ActivityIndicator size="large" color={currentTheme.primary} />
         <Text style={styles.loaderText}>Loading employees...</Text>
       </View>
     );
@@ -417,213 +460,247 @@ export default function Employees() {
 // ==========================
 // STYLES
 // ==========================
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-    padding: 15,
-  },
+const createStyles = (theme:any) =>
+StyleSheet.create({
 
-  title: {
-    color: "#fff",
-    fontSize: 28,
-    fontWeight: "900",
-  },
+container:{
+  flex:1,
+  backgroundColor:theme.background,
+},
 
-  subTitle: {
-    color: "#aaa",
-    marginBottom: 15,
-  },
 
-  search: {
-    backgroundColor: "#16293D",
-    color: "#fff",
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 15,
-  },
+title:{
+  color:theme.text,
+  fontSize:28,
+  fontWeight:"900",
+},
 
-  loader: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: colors.background,
-  },
 
-  loaderText: {
-    marginTop: 10,
-    color: "#aaa",
-  },
-  employeeCard: {
-    backgroundColor: "#101E2D",
-    borderRadius: 18,
-    padding: 18,
-    marginBottom: 16,
-    borderLeftWidth: 5,
-    borderLeftColor: "#2D8CFF",
-  },
+subTitle:{
+  color:theme.mutedText,
+  marginBottom:15,
+},
 
-  cardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
 
-  avatar: {
-    width: 55,
-    height: 55,
-    borderRadius: 30,
-    backgroundColor: "#2D8CFF",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 15,
-  },
+search:{
+  backgroundColor:theme.cardDark,
+  color:theme.text,
+  padding:12,
+  borderRadius:10,
+  marginBottom:15,
+},
 
-  avatarText: {
-    color: "#FFF",
-    fontWeight: "900",
-    fontSize: 22,
-  },
 
-  separator: {
-    height: 1,
-    backgroundColor: "#1E344A",
-    marginVertical: 15,
-  },
+loader:{
+  flex:1,
+  justifyContent:"center",
+  alignItems:"center",
+  backgroundColor:theme.background,
+},
 
-  info: {
-    color: "#9FB2C6",
-    marginBottom: 8,
-    fontSize: 14,
-  },
 
-  value: {
-    color: "#FFF",
-    fontWeight: "800",
-  },
-
-  buttonRow: {
-    flexDirection: "row",
-    marginTop: 18,
-  },
-
-  editBtn: {
-    flex: 1,
-    backgroundColor: "#2D8CFF",
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: "center",
-    marginRight: 8,
-  },
-
-  deleteBtn: {
-    flex: 1,
-    backgroundColor: "#E53935",
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: "center",
-    marginLeft: 8,
-  },
-
-  btnText: {
-    color: "#FFF",
-    fontWeight: "900",
-  },
-
-  name: {
-    color: "#FFF",
-    fontSize: 18,
-    fontWeight: "900",
-  },
-
-  email: {
-    color: "#7F93A8",
-    marginTop: 4,
-  },
+loaderText:{
+  marginTop:10,
+  color:theme.mutedText,
+},
 
 
 
-  empty: {
-    color: "#AAA",
-    textAlign: "center",
-    marginTop: 50,
-  },
+employeeCard:{
+  backgroundColor:theme.card,
+  borderRadius:18,
+  padding:18,
+  marginBottom:16,
+
+  borderLeftWidth:5,
+  borderLeftColor:theme.primary,
+},
 
 
-  card: {
-    backgroundColor: "#101E2D",
-    padding: 15,
-    borderRadius: 12,
-    marginBottom: 12,
-    flexDirection: "row",
-    alignItems: "center",
-  },
+
+cardHeader:{
+  flexDirection:"row",
+  alignItems:"center",
+},
 
 
-  status: {
-    marginTop: 5,
-    fontWeight: "700",
-  },
 
-  actions: {
-    marginLeft: 10,
-  },
+avatar:{
+  width:55,
+  height:55,
+  borderRadius:30,
 
-  modalOverlay: {
-    flex: 1,
-    backgroundColor:
-      "rgba(0,0,0,0.7)",
-    justifyContent: "center",
-    padding: 20,
-  },
+  backgroundColor:theme.primary,
 
-  modalContainer: {
-    backgroundColor: "#101E2D",
-    borderRadius: 20,
-    padding: 20,
-    maxHeight: "80%",
-  },
+  justifyContent:"center",
+  alignItems:"center",
 
-  modalTitle: {
-    color: "#FFF",
-    fontSize: 22,
-    fontWeight: "900",
-    marginBottom: 20,
-    textAlign: "center",
-  },
+  marginRight:15,
+},
 
-  modalInput: {
-    backgroundColor: "#16293D",
-    color: "#FFF",
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 15,
-  },
 
-  modalButtonRow: {
-    flexDirection: "row",
-    marginTop: 10,
-  },
 
-  cancelBtn: {
-    flex: 1,
-    backgroundColor: "#555",
-    padding: 14,
-    borderRadius: 12,
-    alignItems: "center",
-    marginRight: 8,
-  },
+avatarText:{
+  color:theme.buttonText,
+  fontWeight:"900",
+  fontSize:22,
+},
 
-  saveBtn: {
-    flex: 1,
-    backgroundColor: "#2D8CFF",
-    padding: 14,
-    borderRadius: 12,
-    alignItems: "center",
-    marginLeft: 8,
-  },
 
-  modalBtnText: {
-    color: "#FFF",
-    fontWeight: "900",
-  },
+
+separator:{
+  height:1,
+  backgroundColor:theme.divider,
+  marginVertical:15,
+},
+
+
+
+info:{
+  color:theme.secondaryText,
+  marginBottom:8,
+  fontSize:14,
+},
+
+
+
+value:{
+  color:theme.text,
+  fontWeight:"800",
+},
+
+
+
+name:{
+  color:theme.text,
+  fontSize:18,
+  fontWeight:"900",
+},
+
+
+
+email:{
+  color:theme.mutedText,
+  marginTop:4,
+},
+
+
+
+buttonRow:{
+ flexDirection:"row",
+ marginTop:18,
+},
+
+
+
+editBtn:{
+ flex:1,
+ backgroundColor:theme.primary,
+ paddingVertical:12,
+ borderRadius:12,
+ alignItems:"center",
+ marginRight:8,
+},
+
+
+
+deleteBtn:{
+ flex:1,
+ backgroundColor:theme.danger,
+ paddingVertical:12,
+ borderRadius:12,
+ alignItems:"center",
+ marginLeft:8,
+},
+
+
+
+btnText:{
+ color:theme.buttonText,
+ fontWeight:"900",
+},
+
+
+
+empty:{
+ color:theme.mutedText,
+ textAlign:"center",
+ marginTop:50,
+},
+
+
+
+modalOverlay:{
+ flex:1,
+ backgroundColor:"rgba(0,0,0,0.7)",
+ justifyContent:"center",
+ padding:20,
+},
+
+
+
+modalContainer:{
+ backgroundColor:theme.card,
+ borderRadius:20,
+ padding:20,
+ maxHeight:"80%",
+},
+
+
+
+modalTitle:{
+ color:theme.text,
+ fontSize:22,
+ fontWeight:"900",
+ marginBottom:20,
+ textAlign:"center",
+},
+
+
+
+modalInput:{
+ backgroundColor:theme.cardDark,
+ color:theme.text,
+ borderRadius:12,
+ padding:14,
+ marginBottom:15,
+},
+
+
+
+modalButtonRow:{
+ flexDirection:"row",
+ marginTop:10,
+},
+
+
+
+cancelBtn:{
+ flex:1,
+ backgroundColor:theme.buttonDisabled,
+ padding:14,
+ borderRadius:12,
+ alignItems:"center",
+ marginRight:8,
+},
+
+
+
+saveBtn:{
+ flex:1,
+ backgroundColor:theme.primary,
+ padding:14,
+ borderRadius:12,
+ alignItems:"center",
+ marginLeft:8,
+},
+
+
+
+modalBtnText:{
+ color:theme.buttonText,
+ fontWeight:"900",
+},
+
+
 });

@@ -11,8 +11,19 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { API_URL } from "../../config/api";
-import { colors } from "../../constants/theme";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import {
+  useColorScheme,
+} from "react-native";
 
+import {
+  darkTheme,
+  lightTheme,
+} from "../../constants/theme";
+
+import {
+  useFocusEffect,
+} from "@react-navigation/native";
 export default function Products() {
   const [refreshing, setRefreshing] = useState(false);
   const [products, setProducts] = useState<any[]>([]);
@@ -22,7 +33,49 @@ export default function Products() {
   const [category, setCategory] = useState("");
 
   const [search, setSearch] = useState("");
+//Theme
+const [theme, setTheme] = useState("dark");
 
+const deviceTheme = useColorScheme();
+
+
+useFocusEffect(
+  React.useCallback(() => {
+    loadTheme();
+  }, [])
+);
+
+
+
+const loadTheme = async () => {
+  try {
+
+    const savedTheme =
+      await AsyncStorage.getItem("theme");
+
+    if(savedTheme){
+      setTheme(savedTheme);
+    }
+
+  } catch(error){
+    console.log(error);
+  }
+};
+
+
+
+const currentTheme =
+  theme === "light"
+    ? lightTheme
+    : theme === "dark"
+      ? darkTheme
+      : deviceTheme === "light"
+        ? lightTheme
+        : darkTheme;
+
+
+
+const styles = createStyles(currentTheme);
   // ==========================
   // LOAD PRODUCTS
   // ==========================
@@ -139,7 +192,7 @@ export default function Products() {
   if (loading) {
     return (
       <View style={styles.loader}>
-        <ActivityIndicator size="large" color="#2D8CFF" />
+        <ActivityIndicator size="large" color={currentTheme.primary} />
         <Text style={styles.loaderText}>Loading products...</Text>
       </View>
     );
@@ -156,7 +209,7 @@ export default function Products() {
       {/* SEARCH */}
       <TextInput
         placeholder="Search products..."
-        placeholderTextColor="#777"
+        placeholderTextColor={currentTheme.mutedText}
         value={search}
         onChangeText={setSearch}
         style={styles.search}
@@ -220,113 +273,156 @@ export default function Products() {
 // ==========================
 // STYLES
 // ==========================
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-    padding: 15,
-  },
+const createStyles = (theme:any) =>
 
-  title: {
-    color: "#fff",
-    fontSize: 28,
-    fontWeight: "900",
-  },
+StyleSheet.create({
 
-  subTitle: {
-    color: "#aaa",
-    marginBottom: 15,
-  },
+container:{
+  flex:1,
+  backgroundColor:theme.background,
+  padding:15,
+},
 
-  search: {
-    backgroundColor: "#16293D",
-    color: "#fff",
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 15,
-  },
 
-  form: {
-    backgroundColor: "#101E2D",
-    padding: 15,
-    borderRadius: 12,
-    marginBottom: 20,
-  },
 
-  formTitle: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "800",
-    marginBottom: 10,
-  },
+title:{
+  color:theme.text,
+  fontSize:28,
+  fontWeight:"900",
+},
 
-  input: {
-    backgroundColor: "#16293D",
-    color: "#fff",
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 10,
-  },
 
-  addBtn: {
-    backgroundColor: "#2D8CFF",
-    padding: 12,
-    borderRadius: 10,
-    alignItems: "center",
-  },
 
-  btnText: {
-    color: "#fff",
-    fontWeight: "800",
-  },
+subTitle:{
+  color:theme.secondaryText,
+  marginBottom:15,
+},
 
-  card: {
-    backgroundColor: "#101E2D",
-    padding: 15,
-    borderRadius: 12,
-    marginBottom: 12,
-    flexDirection: "row",
-    alignItems: "center",
-  },
 
-  name: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "800",
-  },
 
-  category: {
-    color: "#aaa",
-    marginTop: 4,
-  },
+search:{
+  backgroundColor:theme.cardDark,
+  color:theme.text,
+  padding:12,
+  borderRadius:10,
+  marginBottom:15,
+  borderWidth:1,
+  borderColor:theme.border,
+},
 
-  deleteBtn: {
-    backgroundColor: "#E53935",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-  },
 
-  deleteText: {
-    color: "#fff",
-    fontWeight: "800",
-  },
 
-  loader: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: colors.background,
-  },
+form:{
+  backgroundColor:theme.card,
+  padding:15,
+  borderRadius:12,
+  marginBottom:20,
+  borderWidth:1,
+  borderColor:theme.border,
+},
 
-  loaderText: {
-    marginTop: 10,
-    color: "#aaa",
-  },
 
-  empty: {
-    color: "#aaa",
-    textAlign: "center",
-    marginTop: 20,
-  },
+
+formTitle:{
+  color:theme.text,
+  fontSize:18,
+  fontWeight:"800",
+  marginBottom:10,
+},
+
+
+
+input:{
+  backgroundColor:theme.cardDark,
+  color:theme.text,
+  padding:12,
+  borderRadius:10,
+  marginBottom:10,
+},
+
+
+
+addBtn:{
+  backgroundColor:theme.primary,
+  padding:12,
+  borderRadius:10,
+  alignItems:"center",
+},
+
+
+
+btnText:{
+  color:theme.buttonText,
+  fontWeight:"800",
+},
+
+
+
+card:{
+  backgroundColor:theme.card,
+  padding:15,
+  borderRadius:12,
+  marginBottom:12,
+  flexDirection:"row",
+  alignItems:"center",
+  borderWidth:1,
+  borderColor:theme.border,
+},
+
+
+
+name:{
+  color:theme.text,
+  fontSize:16,
+  fontWeight:"800",
+},
+
+
+
+category:{
+  color:theme.secondaryText,
+  marginTop:4,
+},
+
+
+
+deleteBtn:{
+  backgroundColor:theme.danger,
+  paddingVertical:8,
+  paddingHorizontal:12,
+  borderRadius:8,
+},
+
+
+
+deleteText:{
+  color:theme.buttonText,
+  fontWeight:"800",
+},
+
+
+
+loader:{
+  flex:1,
+  justifyContent:"center",
+  alignItems:"center",
+  backgroundColor:theme.background,
+},
+
+
+
+loaderText:{
+  marginTop:10,
+  color:theme.mutedText,
+},
+
+
+
+empty:{
+  color:theme.mutedText,
+  textAlign:"center",
+  marginTop:20,
+},
+
+
 });

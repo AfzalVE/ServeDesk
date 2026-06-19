@@ -1,4 +1,8 @@
-import React, { useState } from "react";
+import React, {
+  useState,
+  useEffect,
+} from "react";
+
 import { Link, router } from "expo-router";
 
 import {
@@ -8,13 +12,21 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useColorScheme,
 } from "react-native";
 
-import { SafeAreaView } from "react-native-safe-area-context";
-import { colors } from "../../constants/theme";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+import {
+  SafeAreaView,
+} from "react-native-safe-area-context";
+
+import {
+  darkTheme,
+  lightTheme,
+} from "../../constants/theme";
 
 import { API_URL } from "../../config/api";
-
 export default function SignUp() {
   const [fullName, setFullName] = useState("");
   const [employeeId, setEmployeeId] = useState("");
@@ -24,7 +36,40 @@ export default function SignUp() {
   const [userType, setUserType] = useState("CUSTOMER");
 
   const [loading, setLoading] = useState(false);
+const deviceTheme =
+  useColorScheme();
 
+const [theme, setTheme] =
+  useState("dark");
+
+useEffect(() => {
+  loadTheme();
+}, []);
+
+const loadTheme =
+  async () => {
+    try {
+      const savedTheme =
+        await AsyncStorage.getItem(
+          "theme"
+        );
+
+      if (savedTheme) {
+        setTheme(savedTheme);
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+const currentTheme =
+  theme === "light"
+    ? lightTheme
+    : theme === "dark"
+    ? darkTheme
+    : deviceTheme === "light"
+    ? lightTheme
+    : darkTheme;
   const handleSignup = async () => {
     if (
       !fullName.trim() ||
@@ -113,208 +158,349 @@ export default function SignUp() {
     }
   };
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
+return (
+  <SafeAreaView
+    style={[
+      styles.container,
+      {
+        backgroundColor:
+          currentTheme.background,
+      },
+    ]}
+  >
+    <ScrollView
+      showsVerticalScrollIndicator={
+        false
+      }
+    >
+      <Text
+        style={[
+          styles.title,
+          {
+            color:
+              currentTheme.text,
+          },
+        ]}
       >
-        <Text style={styles.title}>
-          Create Account
-        </Text>
+        Create Account
+      </Text>
 
-        <Text style={styles.subtitle}>
-          Join your company's workspace
-        </Text>
+      <Text
+        style={[
+          styles.subtitle,
+          {
+            color:
+              currentTheme.secondaryText,
+          },
+        ]}
+      >
+        Join your company's workspace
+      </Text>
 
-        <TextInput
-          style={styles.input}
-          placeholder="Full Name"
-          placeholderTextColor="#7F8C9A"
-          value={fullName}
-          onChangeText={setFullName}
-        />
+      <TextInput
+        style={[
+          styles.input,
+          {
+            backgroundColor:
+              currentTheme.card,
+            color:
+              currentTheme.text,
+            borderColor:
+              currentTheme.border,
+          },
+        ]}
+        placeholder="Full Name"
+        placeholderTextColor={
+          currentTheme.secondaryText
+        }
+        value={fullName}
+        onChangeText={setFullName}
+      />
 
-        <TextInput
-          style={styles.input}
-          placeholder="Employee ID"
-          placeholderTextColor="#7F8C9A"
-          value={employeeId}
-          onChangeText={setEmployeeId}
-          autoCapitalize="none"
-        />
-        <Text style={styles.userTypeLabel}>
-          Register As
-        </Text>
+      <TextInput
+        style={[
+          styles.input,
+          {
+            backgroundColor:
+              currentTheme.card,
+            color:
+              currentTheme.text,
+            borderColor:
+              currentTheme.border,
+          },
+        ]}
+        placeholder="Employee ID"
+        placeholderTextColor={
+          currentTheme.secondaryText
+        }
+        value={employeeId}
+        onChangeText={setEmployeeId}
+        autoCapitalize="none"
+      />
 
-        <TouchableOpacity
+      <Text
+        style={[
+          styles.userTypeLabel,
+          {
+            color:
+              currentTheme.text,
+          },
+        ]}
+      >
+        Register As
+      </Text>
+
+      <TouchableOpacity
+        style={[
+          styles.userTypeButton,
+          {
+            backgroundColor:
+              currentTheme.card,
+            borderColor:
+              currentTheme.border,
+          },
+          userType ===
+            "CUSTOMER" && {
+            borderColor:
+              currentTheme.primary,
+            backgroundColor:
+              currentTheme.border,
+          },
+        ]}
+        onPress={() =>
+          setUserType(
+            "CUSTOMER"
+          )
+        }
+      >
+        <Text
           style={[
-            styles.userTypeButton,
-            userType === "CUSTOMER" &&
-            styles.selectedUserType,
-          ]}
-          onPress={() =>
-            setUserType("CUSTOMER")
-          }
-        >
-          <Text
-            style={styles.userTypeText}
-          >
-            Customer (Give Orders)
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.userTypeButton,
-            userType === "EMPLOYEE" &&
-            styles.selectedUserType,
-          ]}
-          onPress={() =>
-            setUserType("EMPLOYEE")
-          }
-        >
-          <Text
-            style={styles.userTypeText}
-          >
-            Employee (Complete Tasks)
-          </Text>
-        </TouchableOpacity>
-        <TextInput
-          style={styles.input}
-          placeholder="Company Email"
-          placeholderTextColor="#7F8C9A"
-          keyboardType="email-address"
-          autoCapitalize="none"
-          value={email}
-          onChangeText={setEmail}
-        />
-
-        <TextInput
-          style={styles.input}
-          placeholder="Password"
-          placeholderTextColor="#7F8C9A"
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-        />
-
-        <TextInput
-          style={styles.input}
-          placeholder="Confirm Password"
-          placeholderTextColor="#7F8C9A"
-          secureTextEntry
-          value={confirmPassword}
-          onChangeText={
-            setConfirmPassword
-          }
-        />
-
-        <TouchableOpacity
-          style={[
-            styles.button,
-            loading && {
-              opacity: 0.7,
+            styles.userTypeText,
+            {
+              color:
+                currentTheme.text,
             },
           ]}
-          onPress={handleSignup}
-          disabled={loading}
         >
-          <Text style={styles.buttonText}>
-            {loading
-              ? "Creating Account..."
-              : "Create Account"}
+          Customer (Give Orders)
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[
+          styles.userTypeButton,
+          {
+            backgroundColor:
+              currentTheme.card,
+            borderColor:
+              currentTheme.border,
+          },
+          userType ===
+            "EMPLOYEE" && {
+            borderColor:
+              currentTheme.primary,
+            backgroundColor:
+              currentTheme.border,
+          },
+        ]}
+        onPress={() =>
+          setUserType(
+            "EMPLOYEE"
+          )
+        }
+      >
+        <Text
+          style={[
+            styles.userTypeText,
+            {
+              color:
+                currentTheme.text,
+            },
+          ]}
+        >
+          Employee (Complete Tasks)
+        </Text>
+      </TouchableOpacity>
+
+      <TextInput
+        style={[
+          styles.input,
+          {
+            backgroundColor:
+              currentTheme.card,
+            color:
+              currentTheme.text,
+            borderColor:
+              currentTheme.border,
+          },
+        ]}
+        placeholder="Company Email"
+        placeholderTextColor={
+          currentTheme.secondaryText
+        }
+        keyboardType="email-address"
+        autoCapitalize="none"
+        value={email}
+        onChangeText={setEmail}
+      />
+
+      <TextInput
+        style={[
+          styles.input,
+          {
+            backgroundColor:
+              currentTheme.card,
+            color:
+              currentTheme.text,
+            borderColor:
+              currentTheme.border,
+          },
+        ]}
+        placeholder="Password"
+        placeholderTextColor={
+          currentTheme.secondaryText
+        }
+        secureTextEntry
+        value={password}
+        onChangeText={setPassword}
+      />
+
+      <TextInput
+        style={[
+          styles.input,
+          {
+            backgroundColor:
+              currentTheme.card,
+            color:
+              currentTheme.text,
+            borderColor:
+              currentTheme.border,
+          },
+        ]}
+        placeholder="Confirm Password"
+        placeholderTextColor={
+          currentTheme.secondaryText
+        }
+        secureTextEntry
+        value={confirmPassword}
+        onChangeText={
+          setConfirmPassword
+        }
+      />
+
+      <TouchableOpacity
+        style={[
+          styles.button,
+          {
+            backgroundColor:
+              currentTheme.primary,
+          },
+          loading && {
+            opacity: 0.7,
+          },
+        ]}
+        onPress={handleSignup}
+        disabled={loading}
+      >
+        <Text
+          style={
+            styles.buttonText
+          }
+        >
+          {loading
+            ? "Creating Account..."
+            : "Create Account"}
+        </Text>
+      </TouchableOpacity>
+
+      <Link
+        href="/sign-in"
+        asChild
+      >
+        <TouchableOpacity>
+          <Text
+            style={[
+              styles.link,
+              {
+                color:
+                  currentTheme.primary,
+              },
+            ]}
+          >
+            Already have an account?
+            {"\n"}
+            Sign In
           </Text>
         </TouchableOpacity>
-
-        <Link
-          href="/sign-in"
-          asChild
-        >
-          <TouchableOpacity>
-            <Text style={styles.link}>
-              Already have an account?
-              {"\n"}
-              Sign In
-            </Text>
-          </TouchableOpacity>
-        </Link>
-      </ScrollView>
-    </SafeAreaView>
-  );
+      </Link>
+    </ScrollView>
+  </SafeAreaView>
+);
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-    padding: 25,
-  },
+const styles =
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      padding: 25,
+    },
 
-  title: {
-    color: "#FFF",
-    fontSize: 34,
-    fontWeight: "900",
-    marginTop: 40,
-  },
+    title: {
+      fontSize: 34,
+      fontWeight: "900",
+      marginTop: 40,
+    },
 
-  subtitle: {
-    color: "#9DB1C7",
-    marginTop: 10,
-    marginBottom: 30,
-  },
+    subtitle: {
+      marginTop: 10,
+      marginBottom: 30,
+      fontSize: 15,
+    },
 
-  input: {
-    backgroundColor: "#101E2D",
-    color: "#FFF",
-    padding: 15,
-    borderRadius: 12,
-    marginBottom: 15,
-  },
+    input: {
+      padding: 15,
+      borderRadius: 12,
+      marginBottom: 15,
+      borderWidth: 1,
+      fontSize: 15,
+    },
 
-  button: {
-    backgroundColor: "#2D8CFF",
-    padding: 16,
-    borderRadius: 14,
-    alignItems: "center",
-    marginTop: 10,
-  },
+    button: {
+      padding: 16,
+      borderRadius: 14,
+      alignItems: "center",
+      marginTop: 10,
+    },
 
-  buttonText: {
-    color: "#FFF",
-    fontWeight: "800",
-    fontSize: 16,
-  },
+    buttonText: {
+      color: "#FFFFFF",
+      fontWeight: "800",
+      fontSize: 16,
+    },
 
-  link: {
-    color: "#64B5F6",
-    textAlign: "center",
-    marginTop: 25,
-    fontWeight: "700",
-  },
-  userTypeLabel: {
-  color: "#FFF",
-  fontSize: 16,
-  fontWeight: "700",
-  marginBottom: 10,
-  marginTop: 5,
-},
+    link: {
+      textAlign: "center",
+      marginTop: 25,
+      fontWeight: "700",
+      marginBottom: 30,
+    },
 
-userTypeButton: {
-  backgroundColor: "#101E2D",
-  padding: 15,
-  borderRadius: 12,
-  marginBottom: 12,
-  borderWidth: 1,
-  borderColor: "#101E2D",
-},
+    userTypeLabel: {
+      fontSize: 16,
+      fontWeight: "700",
+      marginBottom: 10,
+      marginTop: 5,
+    },
 
-selectedUserType: {
-  borderColor: "#2D8CFF",
-  backgroundColor: "#16324F",
-},
+    userTypeButton: {
+      padding: 15,
+      borderRadius: 12,
+      marginBottom: 12,
+      borderWidth: 1,
+    },
 
-userTypeText: {
-  color: "#FFFFFF",
-  fontWeight: "700",
-},
-});
+    userTypeText: {
+      fontWeight: "700",
+      fontSize: 14,
+    },
+  });
