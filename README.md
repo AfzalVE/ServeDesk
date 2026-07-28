@@ -102,4 +102,4 @@ Advanced analytics dashboard
 Push notifications for employees
 📜 License
 
-This project is for educational and development purposes
+This project is for educational and development purposes.
